@@ -58,11 +58,15 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
 - ☑ P6  Editing scaffolding (ADR 0005): lock guard (`e.is_locked/lock/unlock`,
         `ModelLockedError`, never-implicit + always-warns), `e.edit`/`e.assign`
         + `eItemType` targeting. DONE (reviewed; lock-safety clean, no blockers).
-- ☐ P7  Creation scaffolding (ADR 0006): `e.define`/`e.create` skeletons,
-        inbound units, name+handle, template `e.new.*`.  ⚑
-- ☐ P8  Agentic scaffolding (ADR 0007): spec base + pipeline
-        (`propose→validate→plan→gate→run→record`), `AgentPolicy`, structured
-        results/errors, `ReportWorkflow` skeleton.  ⚑
+- ☑ P7  Creation scaffolding (ADR 0006): `e.define`/`e.create`/`e.new`,
+        `FrameHandle` (i/j via GetPoints), inbound units, lock-guarded. DONE
+        (reviewed; ModelSpec declarative tier deferred by design).
+- ☑ P8  Agentic scaffolding (ADR 0007): `Spec` base + `run_spec` pipeline
+        (`propose→validate→plan→gate→run→record`), `AgentPolicy` tier gating,
+        structured `Outcome`/`Finding`, `ReportSpec` (read tier, real). DONE
+        (reviewed; all claims held, no blockers).
+
+ALL PLANNED PHASES P0–P8 COMPLETE.
 
 ## Conventions (from ADRs — enforce in review)
 - Composition only; no mixins. Composites talk via `self._parent.*`.
@@ -92,6 +96,11 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
   human name. Confirm/normalize against a live `e.tables.available()` dump.
 - [low] `Edit.delete` hardcodes eItemType.Objects (single-name only); adopt
   `_Target` if/when bulk delete is added.
+- [P7/low] `Define.material` uses the DEPRECATED `cPropMaterial.SetMaterial`;
+  migrate to `AddMaterial` (Region/Standard/Grade) when hardening creation.
+- [P8] `record` stage is in-memory only; add a persistence/audit store when
+  realizing ADR 0007 beyond scaffolding. `ModelSpec`/`EditSpec` are stubs.
+- [low] creation stub `NotImplementedError`s are untested (coverage gap).
 - [med] Builder↔plotter drift: plotting force tests use synthetic stubs whose
   staircase shape ([12,12,8,8,4,4,0,0]) differs from the real builder
   ([12,8,8,4,4,0]); add an INTEGRATION test (e.plot.story_shear over the real
@@ -107,3 +116,7 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
 - P1+P2+P3 done via workflow ws18kft3o (8 agents); 1 arch blocker found +
   fixed (Parent Contract widened, COM calls routed through ok(), loud
   unmapped-story failure); ruff clean, 67 tests pass.
+- P4 done via wn5ewzvlx; HIGH blocker (scrambled shear staircase) found+fixed; 92 tests.
+- P5+P6 done via wwtu4qsed; lock-safety review clean, no blockers; 121 tests.
+- P7+P8 done via whghnszy7; no blockers (1 low: deprecated SetMaterial); 158 tests.
+- ALL P0-P8 COMPLETE. Remaining = the non-blocking follow-ups above + P5 live run.

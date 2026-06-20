@@ -30,6 +30,9 @@ if TYPE_CHECKING:
     from .plotting.Plot import Plot
     from .editing.Edit import Edit
     from .editing.Assign import Assign
+    from .creation.Define import Define
+    from .creation.Create import Create
+    from .creation.New import New
 
 
 class apeETABS(_SessionBase):
@@ -62,6 +65,10 @@ class apeETABS(_SessionBase):
         # Editing layer (ADR 0005): geometry/topology + property/load writes.
         ("edit",    ".editing.Edit",   "Edit",    False),
         ("assign",  ".editing.Assign", "Assign",  False),
+        # Creation layer (ADR 0006): templates + model dictionary + geometry.
+        ("define",  ".creation.Define", "Define", False),
+        ("create",  ".creation.Create", "Create", False),
+        ("new",     ".creation.New",    "New",    False),
     )
 
     # Static type declarations for composites (created at runtime by begin()).
@@ -72,3 +79,6 @@ class apeETABS(_SessionBase):
     plot: "Plot"
     edit: "Edit"
     assign: "Assign"
+    define: "Define"
+    create: "Create"
+    new: "New"

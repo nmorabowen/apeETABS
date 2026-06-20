@@ -119,11 +119,16 @@ class _Story:
 
 
 class _FrameObj:
-    """Fake ``cSapModel.FrameObj`` recording ChangeName/Delete calls."""
+    """Fake ``cSapModel.FrameObj`` recording ChangeName/Delete/Add calls."""
 
     def __init__(self) -> None:
         self.renamed: list[tuple[str, str]] = []
         self.deleted: list[tuple[str, int]] = []
+        # Creation (ADR 0006): record AddByCoord and serve GetPoints.
+        self.added: list[dict] = []
+        self._auto = 0
+        # frame name -> (i_point_name, j_point_name) served by GetPoints.
+        self._points: dict[str, tuple[str, str]] = {}
 
     # ChangeName(Name, NewName) -> ret
     def ChangeName(self, name, new_name):
@@ -135,18 +140,41 @@ class _FrameObj:
         self.deleted.append((name, int(item_type)))
         return 0
 
+    # AddByCoord(XI,YI,ZI, XJ,YJ,ZJ, ref Name, PropName, UserName, CSys)
+    #   -> [Name, ret]
+    def AddByCoord(self, xi, yi, zi, xj, yj, zj, _name, prop="Default",
+                   user="", csys="Global"):
+        self._auto += 1
+        name = user or f"F{self._auto}"
+        self.added.append(
+            {"i": (xi, yi, zi), "j": (xj, yj, zj), "prop": prop, "name": name}
+        )
+        # ETABS reorders I/J; the mock simulates that by naming end points
+        # deterministically from the frame name (the production code must read
+        # these back from GetPoints rather than assume the input order).
+        self._points[name] = (f"~{name}-I", f"~{name}-J")
+        return [name, 0]
+
+    # GetPoints(Name, ref Point1, ref Point2) -> [Point1, Point2, ret]
+    def GetPoints(self, name, _p1, _p2):
+        pi, pj = self._points.get(name, ("", ""))
+        return [pi, pj, 0]
+
 
 class _AreaObj(_FrameObj):
     """Fake ``cSapModel.AreaObj`` (same ChangeName/Delete contract)."""
 
 
 class _PointObj:
-    """Fake ``cSapModel.PointObj`` recording ChangeName/Delete/SetRestraint."""
+    """Fake ``cSapModel.PointObj`` recording ChangeName/Delete/SetRestraint/Add."""
 
     def __init__(self) -> None:
         self.renamed: list[tuple[str, str]] = []
         self.deleted: list[tuple[str, int]] = []
         self.restraints: list[tuple[str, list[bool], int]] = []
+        # Creation (ADR 0006): record AddCartesian calls.
+        self.added: list[dict] = []
+        self._auto = 0
 
     # ChangeName(Name, NewName) -> ret
     def ChangeName(self, name, new_name):
@@ -163,15 +191,81 @@ class _PointObj:
         self.restraints.append((name, [bool(v) for v in value], int(item_type)))
         return 0
 
+    # AddCartesian(X, Y, Z, ref Name, UserName, CSys, ...) -> [Name, ret]
+    def AddCartesian(self, x, y, z, _name, user="", csys="Global", *_rest):
+        self._auto += 1
+        name = user or f"P{self._auto}"
+        self.added.append({"xyz": (x, y, z), "name": name})
+        return [name, 0]
+
+
+class _PropMaterial:
+    """Fake ``cSapModel.PropMaterial`` recording SetMaterial/SetMPIsotropic."""
+
+    def __init__(self) -> None:
+        self.materials: list[tuple[str, int]] = []
+        self.isotropic: list[tuple[str, float, float, float]] = []
+
+    # SetMaterial(Name, MatType, Color, Notes, GUID) -> ret
+    def SetMaterial(self, name, mat_type, *_rest):
+        self.materials.append((name, int(mat_type)))
+        return 0
+
+    # SetMPIsotropic(Name, E, U, A, Temp) -> ret
+    def SetMPIsotropic(self, name, E, U, A, temp=0.0):
+        self.isotropic.append((name, float(E), float(U), float(A)))
+        return 0
+
+
+class _PropFrame:
+    """Fake ``cSapModel.PropFrame`` recording SetRectangle."""
+
+    def __init__(self) -> None:
+        self.rectangles: list[tuple[str, str, float, float]] = []
+
+    # SetRectangle(Name, MatProp, T3, T2, Color, Notes, GUID) -> ret
+    def SetRectangle(self, name, mat, t3, t2, *_rest):
+        self.rectangles.append((name, mat, float(t3), float(t2)))
+        return 0
+
+
+class _LoadPatterns:
+    """Fake ``cSapModel.LoadPatterns`` recording Add."""
+
+    def __init__(self) -> None:
+        self.added: list[tuple[str, int, float, bool]] = []
+
+    # Add(Name, MyType, SelfWTMultiplier, AddAnalysisCase) -> ret
+    def Add(self, name, my_type, self_wt=0.0, add_case=True):
+        self.added.append((name, int(my_type), float(self_wt), bool(add_case)))
+        return 0
+
 
 class _File:
-    """Fake ``cSapModel.File``."""
+    """Fake ``cSapModel.File`` recording OpenFile + the template New* calls."""
 
     def __init__(self) -> None:
         self.opened: str | None = None
+        self.new_calls: list[tuple[str, tuple]] = []
 
     def OpenFile(self, path):
         self.opened = path
+        return 0
+
+    # NewBlank() -> ret
+    def NewBlank(self):
+        self.new_calls.append(("blank", ()))
+        return 0
+
+    # NewGridOnly(NumberStorys, TypicalStoryHeight, BottomStoryHeight,
+    #   NumberLinesX, NumberLinesY, SpacingX, SpacingY) -> ret
+    def NewGridOnly(self, *args):
+        self.new_calls.append(("grid_only", tuple(args)))
+        return 0
+
+    # NewSteelDeck(...) same signature as NewGridOnly -> ret
+    def NewSteelDeck(self, *args):
+        self.new_calls.append(("steel_deck", tuple(args)))
         return 0
 
 
@@ -197,9 +291,15 @@ class MockSapModel:
         self.File = _File()
 
         # Editing collaborators (ADR 0005): record ChangeName/Delete/SetRestraint.
+        # They also serve the creation Add* calls (ADR 0006).
         self.FrameObj = _FrameObj()
         self.AreaObj = _AreaObj()
         self.PointObj = _PointObj()
+
+        # Creation collaborators (ADR 0006): record the define/* calls.
+        self.PropMaterial = _PropMaterial()
+        self.PropFrame = _PropFrame()
+        self.LoadPatterns = _LoadPatterns()
 
     # ---- units --------------------------------------------------------
     # GetPresentUnits_2(force, length, temp) -> [force, length, temp, ret]

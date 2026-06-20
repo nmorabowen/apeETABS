@@ -31,8 +31,9 @@ from __future__ import annotations
 
 from ._session import _SessionBase
 from ._core import apeETABS
-from .enums import eForce, eLength, eTemperature
+from .enums import eForce, eLength, eLoadPatternType, eMatType, eTemperature
 from .errors import ETABSError, ConnectionError, ModelLockedError, ok
+from .creation.FrameHandle import FrameHandle
 
 # Ergonomic alias.
 ETABS = apeETABS
@@ -46,6 +47,9 @@ __all__ = [
     "eForce",
     "eLength",
     "eTemperature",
+    "eMatType",
+    "eLoadPatternType",
+    "FrameHandle",
     "ETABSError",
     "ConnectionError",
     "ModelLockedError",
