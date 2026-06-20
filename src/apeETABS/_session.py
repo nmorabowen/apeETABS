@@ -10,7 +10,11 @@ Composites receive the session as ``self._parent`` and may access:
 * ``_parent.etabs``       — the ``cOAPI`` object (the application)
 * ``_parent._verbose: bool`` — logging verbosity flag
 * ``_parent.is_active: bool`` — True once connected
-* ``_parent.units``       — the Units composite (others convert through it)
+* sibling composites — a composite may read ``units``, ``tables``,
+  ``stories``, ``results``, ``plot`` on the parent (e.g. ``units`` to
+  convert; the ``e.plot`` sugar fetches snapshots via ``_parent.results``
+  per ADR 0001 §plotting and ADR 0004 §4). Composites collaborate only
+  through this contract — never by inheritance.
 
 Subclasses MUST define ``_COMPOSITES`` as a class-level tuple of
 ``(attr_name, relative_module, class_name, is_optional)`` entries, mirroring
@@ -34,7 +38,7 @@ import importlib
 from pathlib import Path
 from typing import ClassVar
 
-from .errors import ConnectionError
+from .errors import ConnectionError, ok
 
 # ETABS COM identifiers.
 _PROGID = "CSI.ETABS.API.ETABSObject"
@@ -203,9 +207,9 @@ class _SessionBase:
         """Open an existing model file in the connected application."""
         if not path.exists():
             raise ConnectionError(f"Model file not found: {path}")
-        ret = self.SapModel.File.OpenFile(str(path))
-        if ret != 0:
-            raise ConnectionError(f"Failed to open model {path} (ret={ret}).")
+        # Route the COM return through ok() (the "every COM return goes through
+        # ok()" invariant); ok() raises ETABSError on a nonzero status.
+        ok(self.SapModel.File.OpenFile(str(path)), f"open model {path}")
 
     # ------------------------------------------------------------------
     # Composite creation

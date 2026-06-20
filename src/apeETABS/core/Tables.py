@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from ..errors import ETABSError
+from ..errors import ok
 
 if TYPE_CHECKING:
     from .._session import _SessionBase
@@ -34,11 +34,10 @@ class Tables:
         Columns: ``TableKey`` (use this as the key for :meth:`get`) and
         ``TableName`` (the human-readable label).
         """
-        result = self._parent.SapModel.DatabaseTables.GetAvailableTables(0, [], [], [])
-        *outs, ret = result
-        if ret != 0:
-            raise ETABSError(f"GetAvailableTables failed (ret={ret}).")
-        _num, keys, names, _import_type = outs
+        _num, keys, names, _import_type = ok(
+            self._parent.SapModel.DatabaseTables.GetAvailableTables(0, [], [], []),
+            "GetAvailableTables",
+        )
         return pd.DataFrame({"TableKey": list(keys), "TableName": list(names)})
 
     def list(self) -> None:
@@ -96,16 +95,13 @@ class Tables:
         """Call GetTableForDisplayArray; return (headers, flat_data)."""
         # Out order: FieldKeyList, TableVersion, FieldsKeysIncluded,
         #            NumberRecords, TableData, ret
-        result = self._parent.SapModel.DatabaseTables.GetTableForDisplayArray(
-            table_key, [], group, 0, [], 0, []
+        _field_keys, _version, fields_included, _num_records, table_data = ok(
+            self._parent.SapModel.DatabaseTables.GetTableForDisplayArray(
+                table_key, [], group, 0, [], 0, []
+            ),
+            f"GetTableForDisplayArray('{table_key}') (check the table key with "
+            f".available())",
         )
-        *outs, ret = result
-        if ret != 0:
-            raise ETABSError(
-                f"GetTableForDisplayArray('{table_key}') failed (ret={ret}). "
-                f"Check the table key with .available()."
-            )
-        _field_keys, _version, fields_included, _num_records, table_data = outs
         headers = list(fields_included) if fields_included else []
         flat = list(table_data) if table_data else []
         if self._parent._verbose and not flat:

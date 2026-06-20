@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from .core.Units import Units
     from .core.Tables import Tables
     from .core.Stories import Stories
+    from .results.Results import Results
+    from .plotting.Plot import Plot
 
 
 class apeETABS(_SessionBase):
@@ -52,9 +54,14 @@ class apeETABS(_SessionBase):
         ("units",   ".core.Units",   "Units",   False),
         ("tables",  ".core.Tables",  "Tables",  False),
         ("stories", ".core.Stories", "Stories", False),
+        ("results", ".results.Results", "Results", False),
+        # Optional: degrade to None (not raise) if matplotlib is absent.
+        ("plot",    ".plotting.Plot", "Plot",    True),
     )
 
     # Static type declarations for composites (created at runtime by begin()).
     units: "Units"
     tables: "Tables"
     stories: "Stories"
+    results: "Results"
+    plot: "Plot"

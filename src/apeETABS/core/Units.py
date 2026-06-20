@@ -52,11 +52,11 @@ class Units:
 
     def get(self) -> tuple[eForce, eLength, eTemperature]:
         """Return the model's present (force, length, temperature) units."""
-        f, l, t = ok(
+        f, len_, t = ok(
             self._parent.SapModel.GetPresentUnits_2(0, 0, 0),
             "get present units",
         )
-        return eForce(f), eLength(l), eTemperature(t)
+        return eForce(f), eLength(len_), eTemperature(t)
 
     def set(
         self,
@@ -75,11 +75,11 @@ class Units:
         """
         cur_f, cur_l, cur_t = self.get()
         f = cur_f if force is None else _coerce(force, eForce)
-        l = cur_l if length is None else _coerce(length, eLength)
+        len_ = cur_l if length is None else _coerce(length, eLength)
         t = cur_t if temperature is None else _coerce(temperature, eTemperature)
-        ok(self._parent.SapModel.SetPresentUnits_2(int(f), int(l), int(t)), "set units")
+        ok(self._parent.SapModel.SetPresentUnits_2(int(f), int(len_), int(t)), "set units")
         if self._parent._verbose:
-            print(f"Present units set to {f.name}, {l.name}, {t.name}.")
+            print(f"Present units set to {f.name}, {len_.name}, {t.name}.")
         return self
 
     @property
@@ -151,16 +151,16 @@ class Units:
         Supported dims: ``force``, ``length``/``disp``, ``moment``,
         ``stress``/``pressure``, ``area``.
         """
-        f, l = self.force_factor, self.length_factor
+        f, len_ = self.force_factor, self.length_factor
         table = {
             "force": f,
-            "length": l,
-            "disp": l,
-            "displacement": l,
-            "moment": f * l,
-            "stress": f / l**2,
-            "pressure": f / l**2,
-            "area": l**2,
+            "length": len_,
+            "disp": len_,
+            "displacement": len_,
+            "moment": f * len_,
+            "stress": f / len_**2,
+            "pressure": f / len_**2,
+            "area": len_**2,
         }
         try:
             return table[dim]
@@ -175,8 +175,8 @@ class Units:
 
     def __repr__(self) -> str:
         try:
-            f, l, t = self.get()
-            return f"Units({f.name}, {l.name}, {t.name})"
+            f, len_, t = self.get()
+            return f"Units({f.name}, {len_.name}, {t.name})"
         except Exception:  # noqa: BLE001 — repr must never raise
             return "Units(<unavailable>)"
 

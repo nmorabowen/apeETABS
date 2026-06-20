@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from ..errors import ok
+
 if TYPE_CHECKING:
     from .._session import _SessionBase
 
@@ -139,13 +141,11 @@ class Stories:
         # BaseElevation, NumberStories, StoryNames, StoryElevations,
         # StoryHeights, IsMasterStory, SimilarToStory, SpliceAbove,
         # SpliceHeight, color, ret
-        result = sap.Story.GetStories_2(0, 0, [], [], [], [], [], [], [], [])
-        *outs, ret = result
-        if ret != 0:
-            from ..errors import ETABSError
-            raise ETABSError(f"GetStories_2 failed (ret={ret}).")
         (base_elev, _num, names, elevs, heights, is_master,
-         _similar, _splice_above, _splice_h, _color) = outs
+         _similar, _splice_above, _splice_h, _color) = ok(
+            sap.Story.GetStories_2(0, 0, [], [], [], [], [], [], [], []),
+            "GetStories_2",
+        )
 
         base_name, base_elev = self._base_story(default_elev=float(base_elev))
 

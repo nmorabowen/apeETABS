@@ -64,8 +64,10 @@ session, not data.
 
 **Composite Parent Contract** (what a composite may read on `self._parent`):
 `SapModel`, `etabs`, `_verbose`, `is_active`, and the sibling composites
-`units`, `tables`, `stories`. Composites collaborate **only** through this
-contract — never by inheritance.
+`units`, `tables`, `stories`, `results`, `plot` (the `e.plot` sugar
+legitimately fetches snapshots via `_parent.results`, sanctioned by
+ADR 0001 §plotting and ADR 0004 §4). Composites collaborate **only** through
+this contract — never by inheritance.
 
 ### 3. Composition replaces the mixin
 
