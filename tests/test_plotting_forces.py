@@ -267,3 +267,28 @@ def test_sugar_wall_envelopes_uses_snapshot_amplification(wall_snapshot):
     fig, axes = plot.wall_force_envelopes("P1")
     # snapshot carries shear_amplification=2.5 -> amplified overlay present
     assert len(axes[2].lines) == 4
+
+
+# ----------------------------------------------------------------------
+# Builder<->plotter integration (real path, no synthetic stubs)
+# ----------------------------------------------------------------------
+#
+# The stubbed tests above pin a synthetic staircase whose shape differs from
+# the REAL StoryForces builder. This integration test drives the production
+# path end to end on the mock fixture: e.plot.story_shear(case=...) fetches the
+# real StoryForces via e.results and renders it. Asserting the plotted line
+# matches StoryForces.shear().value/.elevation catches builder<->plotter drift.
+
+
+def test_plot_story_shear_integration_matches_real_builder(etabs):
+    snap = etabs.results.story_forces(case="EQX")
+    profile = snap.shear(direction="X")
+
+    fig, ax = etabs.plot.story_shear(case="EQX", direction="X")
+    assert fig is ax.figure
+
+    # First line is +v (value, elevation); it must mirror the real Profile the
+    # builder produced — not the synthetic [12,12,8,8,4,4,0,0] stub shape.
+    line = ax.lines[0]
+    np.testing.assert_allclose(line.get_xdata(), profile.value)
+    np.testing.assert_allclose(line.get_ydata(), profile.elevation)

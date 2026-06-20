@@ -7,6 +7,8 @@ import pytest
 
 from apeETABS.errors import ETABSError
 
+from .conftest import bind, make_mock
+
 
 def test_get_reshapes_flat_data_into_dataframe(etabs):
     df = etabs.tables.get("Story Drifts")
@@ -36,6 +38,19 @@ def test_empty_table_returns_empty_with_columns(etabs):
     df = etabs.tables.get("Empty Table")
     assert df.empty
     assert list(df.columns) == ["Story", "Value"]
+
+
+def test_truly_empty_table_returns_bare_dataframe():
+    # A real ETABS table with no data can return an empty FieldsKeysIncluded
+    # (no headers at all). Tables.get must hit its "no headers" branch and
+    # return a bare, column-less empty DataFrame rather than erroring.
+    app = make_mock()
+    app.SapModel.DatabaseTables._empty = {"Story Drifts"}
+    e = bind(app)
+    df = e.tables.get("Story Drifts")
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
+    assert list(df.columns) == []
 
 
 def test_unknown_table_raises(etabs):

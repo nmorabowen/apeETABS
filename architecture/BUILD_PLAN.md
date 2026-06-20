@@ -77,15 +77,11 @@ ALL PLANNED PHASES P0–P8 COMPLETE.
 - Plotting: pure fns return `(fig, ax)`, no import-time side effects.
 
 ## Follow-ups (non-blocking, from P1–P3 adversarial review)
-- [P4] `results/_common.bake_units` records the dim string ('moment'/'force')
-  as the unit label for non-length dims — fix to a real unit name BEFORE the
-  force snapshots (StoryForces/WallForces) inherit wrong axis labels.
-- [med] `e.plot` is_optional "degrade to None if matplotlib absent" is dead
-  code (Plot imports matplotlib lazily, so the module always imports) — either
-  make it genuinely optional or drop the claim/comment.
-- [med] Empty-table path: `Tables.get` "no headers" branch is untested and the
-  mock always returns headers for 0-row tables; add a fixture + test (real
-  ETABS may return empty FieldsKeysIncluded for an empty table).
+- [P4] RESOLVED (in P4): `bake_units` now emits real unit labels for non-length dims.
+- [med] RESOLVED: `e.plot` made genuinely required (matplotlib lazy); dropped
+  the dead "degrade to None" claim.
+- [med] RESOLVED: empty-table `Tables.get` "no headers" branch now covered
+  (mock `empty_tables` fixture + test).
 - [low] numeric OutputCase coercion edge (float/mixed numeric case names).
 - [low] `StoryTable` is a 2nd public class in `Stories.py` (accepted snapshot
   pairing; revisit only if it bites).
@@ -100,16 +96,15 @@ ALL PLANNED PHASES P0–P8 COMPLETE.
   migrate to `AddMaterial` (Region/Standard/Grade) when hardening creation.
 - [P8] `record` stage is in-memory only; add a persistence/audit store when
   realizing ADR 0007 beyond scaffolding. `ModelSpec`/`EditSpec` are stubs.
-- [low] creation stub `NotImplementedError`s are untested (coverage gap).
-- [med] Builder↔plotter drift: plotting force tests use synthetic stubs whose
-  staircase shape ([12,12,8,8,4,4,0,0]) differs from the real builder
-  ([12,8,8,4,4,0]); add an INTEGRATION test (e.plot.story_shear over the real
-  StoryForces via the mock fixture) and align the stub.
+- [low] RESOLVED: creation stub `NotImplementedError`s now tested.
+- [med] RESOLVED: builder↔plotter drift — added an integration test
+  (`e.plot.story_shear` over the real `StoryForces` via the mock; asserts the
+  plotted line matches `shear().value/.elevation`).
 
 ## GitHub
-- Repo: PUBLIC `nmorabowen/apeETABS`; delivery = PR + merge per phase.
-- BLOCKED on one-time `gh auth login` (user). Until then, phases commit
-  locally; publish + per-phase PRs adopted once the remote exists.
+- Repo: PUBLIC https://github.com/nmorabowen/apeETABS — PUBLISHED (`main`).
+- Pushed via Git Credential Manager (no `gh` auth). Future PR-per-phase needs
+  `gh auth login` or the web UI; current history is linear on `main`.
 
 ## Progress log (append one line per iteration)
 - P0 done (baseline commit 006710a).
@@ -119,4 +114,8 @@ ALL PLANNED PHASES P0–P8 COMPLETE.
 - P4 done via wn5ewzvlx; HIGH blocker (scrambled shear staircase) found+fixed; 92 tests.
 - P5+P6 done via wwtu4qsed; lock-safety review clean, no blockers; 121 tests.
 - P7+P8 done via whghnszy7; no blockers (1 low: deprecated SetMaterial); 158 tests.
-- ALL P0-P8 COMPLETE. Remaining = the non-blocking follow-ups above + P5 live run.
+- ALL P0-P8 COMPLETE. Pushed to GitHub (public main).
+- Post-build: README + follow-up batch (builder↔plotter integration test,
+  empty-table coverage, creation-stub coverage, e.plot-required cleanup); 164
+  tests pass. Remaining follow-ups: deprecated SetMaterial, P8 audit store,
+  numeric-OutputCase edge, Edit.delete bulk targeting, + the P5 live run.

@@ -11,7 +11,12 @@ Public construction contract
 
 * ``tables``  : ``{table_key: (headers: list[str], rows: list[list])}``.
   Rows are flattened row-major into ``TableData``; ``headers`` becomes
-  ``FieldsKeysIncluded``. An empty ``rows`` list yields a zero-record table.
+  ``FieldsKeysIncluded``. An empty ``rows`` list yields a zero-record table
+  (headers still returned).
+* ``empty_tables`` : optional set of table keys that simulate a *truly* empty
+  real-ETABS table — the call succeeds (``ret 0``) but returns an empty
+  ``FieldsKeysIncluded`` and no data, exercising ``Tables.get``'s "no headers"
+  branch (which returns a bare ``DataFrame``).
 * ``stories`` : a :class:`StoriesSpec` (or the kwargs to build one) describing
   the ``Story.GetStories_2`` payload. ``base_elevation``/``base_name`` feed the
   fallback path; per-story ``names``/``elevations``/``heights``/``is_master``
@@ -65,14 +70,24 @@ class StoriesSpec:
 class _DatabaseTables:
     """Fake ``cSapModel.DatabaseTables``."""
 
-    def __init__(self, tables: dict[str, tuple[list[str], list[list]]]) -> None:
+    def __init__(
+        self,
+        tables: dict[str, tuple[list[str], list[list]]],
+        empty_tables: set[str] | None = None,
+    ) -> None:
         self._tables = tables
+        # Table keys that simulate a truly empty real-ETABS table: the call
+        # succeeds (ret 0) but returns no FieldsKeysIncluded and no data, so
+        # the "no headers" branch in Tables.get is exercised.
+        self._empty = empty_tables or set()
 
     # GetTableForDisplayArray(key, FieldKeyList, group, TableVersion,
     #   FieldsKeysIncluded, NumberRecords, TableData)
     # -> [FieldKeyList, TableVersion, FieldsKeysIncluded, NumberRecords,
     #     TableData, ret]
     def GetTableForDisplayArray(self, key, _field_keys, _group, _ver, _fki, _nrec, _data):
+        if key in self._empty:
+            return [[], 1, [], 0, [], 0]  # success, but empty FieldsKeysIncluded
         if key not in self._tables:
             return [[], 1, [], 0, [], 1]  # nonzero ret: unknown table
         headers, rows = self._tables[key]
@@ -279,6 +294,7 @@ class MockSapModel:
         stories: StoriesSpec | dict | None = None,
         units: tuple[int, int, int] = (4, 6, 2),  # kN, m, C
         locked: bool = False,
+        empty_tables: set[str] | None = None,
     ) -> None:
         self._tables = tables or {}
         if isinstance(stories, dict):
@@ -286,7 +302,7 @@ class MockSapModel:
         self._units = list(units)
         self._locked = bool(locked)
 
-        self.DatabaseTables = _DatabaseTables(self._tables)
+        self.DatabaseTables = _DatabaseTables(self._tables, empty_tables)
         self.Story = _Story(stories) if stories is not None else None
         self.File = _File()
 

@@ -182,6 +182,35 @@ def test_new_steel_deck_forwards_template_args():
 
 
 # ----------------------------------------------------------------------
+# Documented stubs (ADR 0006 §2) — must raise NotImplementedError until built.
+# ----------------------------------------------------------------------
+
+
+def test_define_section_stub_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(NotImplementedError, match="Define.section"):
+        e.define.section()
+
+
+def test_define_combo_stub_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(NotImplementedError, match="Define.combo"):
+        e.define.combo()
+
+
+def test_define_diaphragm_stub_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(NotImplementedError, match="Define.diaphragm"):
+        e.define.diaphragm()
+
+
+def test_create_area_stub_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(NotImplementedError, match="Create.area"):
+        e.create.area()
+
+
+# ----------------------------------------------------------------------
 # Wiring
 # ----------------------------------------------------------------------
 

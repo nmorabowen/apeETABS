@@ -60,8 +60,9 @@ class apeETABS(_SessionBase):
         ("tables",  ".core.Tables",  "Tables",  False),
         ("stories", ".core.Stories", "Stories", False),
         ("results", ".results.Results", "Results", False),
-        # Optional: degrade to None (not raise) if matplotlib is absent.
-        ("plot",    ".plotting.Plot", "Plot",    True),
+        # Required: Plot imports matplotlib lazily (per-method), so the module
+        # always imports — there is no import-time degrade-to-None path.
+        ("plot",    ".plotting.Plot", "Plot",    False),
         # Editing layer (ADR 0005): geometry/topology + property/load writes.
         ("edit",    ".editing.Edit",   "Edit",    False),
         ("assign",  ".editing.Assign", "Assign",  False),
