@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from .core.Stories import Stories
     from .results.Results import Results
     from .plotting.Plot import Plot
+    from .editing.Edit import Edit
+    from .editing.Assign import Assign
 
 
 class apeETABS(_SessionBase):
@@ -57,6 +59,9 @@ class apeETABS(_SessionBase):
         ("results", ".results.Results", "Results", False),
         # Optional: degrade to None (not raise) if matplotlib is absent.
         ("plot",    ".plotting.Plot", "Plot",    True),
+        # Editing layer (ADR 0005): geometry/topology + property/load writes.
+        ("edit",    ".editing.Edit",   "Edit",    False),
+        ("assign",  ".editing.Assign", "Assign",  False),
     )
 
     # Static type declarations for composites (created at runtime by begin()).
@@ -65,3 +70,5 @@ class apeETABS(_SessionBase):
     stories: "Stories"
     results: "Results"
     plot: "Plot"
+    edit: "Edit"
+    assign: "Assign"

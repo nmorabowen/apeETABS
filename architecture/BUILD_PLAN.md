@@ -52,11 +52,12 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
 - ☑ P4  Force domains (ADR 0003 §7): `StoryForces`, `WallForces` + plots
         (stepped shear, barh, P/M/V triptych, envelopes). DONE (reviewed; 1
         HIGH blocker — scrambled shear staircase — found + fixed).
-- ☐ P5  Live validation pack: `scripts/live_smoke.py` that, given a running
-        ETABS with a reference model open, exercises units/tables/stories/
-        results/plot and prints a report. (MANUAL juncture — needs user.)
-- ☐ P6  Editing scaffolding (ADR 0005): `e.edit`/`e.assign` skeletons, lock
-        guard (`e.unlock/lock/is_locked`, `ModelLockedError`), targeting.  ⚑
+- ☑ P5  Live validation pack: `scripts/live_smoke.py` (attach + exercise
+        units/tables/stories/results/plot, save figures). DONE — awaiting the
+        MANUAL run against a reference model (needs user + open ETABS).
+- ☑ P6  Editing scaffolding (ADR 0005): lock guard (`e.is_locked/lock/unlock`,
+        `ModelLockedError`, never-implicit + always-warns), `e.edit`/`e.assign`
+        + `eItemType` targeting. DONE (reviewed; lock-safety clean, no blockers).
 - ☐ P7  Creation scaffolding (ADR 0006): `e.define`/`e.create` skeletons,
         inbound units, name+handle, template `e.new.*`.  ⚑
 - ☐ P8  Agentic scaffolding (ADR 0007): spec base + pipeline
@@ -85,6 +86,12 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
 - [low] `StoryTable` is a 2nd public class in `Stories.py` (accepted snapshot
   pairing; revisit only if it bites).
 - [P5] Confirm display-table column maps against a real table dump (live).
+- [P5/med] TableKey vs TableName: results builders + live_smoke use display
+  names ("Story Drifts", "Joint Displacements", "Design Forces - Piers") as
+  the GetTableForDisplayArray key; on a real model the key may differ from the
+  human name. Confirm/normalize against a live `e.tables.available()` dump.
+- [low] `Edit.delete` hardcodes eItemType.Objects (single-name only); adopt
+  `_Target` if/when bulk delete is added.
 - [med] Builder↔plotter drift: plotting force tests use synthetic stubs whose
   staircase shape ([12,12,8,8,4,4,0,0]) differs from the real builder
   ([12,8,8,4,4,0]); add an INTEGRATION test (e.plot.story_shear over the real

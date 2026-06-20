@@ -21,6 +21,16 @@ class ConnectionError(ETABSError):
     """Raised when attaching to or launching ETABS fails."""
 
 
+class ModelLockedError(ETABSError):
+    """Raised when a mutating operation is attempted on a locked model.
+
+    After ``RunAnalysis`` ETABS locks the model; editing requires an
+    explicit ``e.unlock()`` (which *deletes* analysis results, ADR 0005 §2).
+    We never unlock implicitly — this error tells the user which operation
+    was blocked and to call ``e.unlock()`` themselves.
+    """
+
+
 def ok(result: Any, what: str = "ETABS API call") -> Any:
     """Validate an ETABS OAPI return and strip the trailing status code.
 

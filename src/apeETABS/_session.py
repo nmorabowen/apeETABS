@@ -35,10 +35,11 @@ to are left running (you are borrowing the user's open program).
 from __future__ import annotations
 
 import importlib
+import warnings
 from pathlib import Path
 from typing import ClassVar
 
-from .errors import ConnectionError, ok
+from .errors import ConnectionError, ModelLockedError, ok
 
 # ETABS COM identifiers.
 _PROGID = "CSI.ETABS.API.ETABSObject"
@@ -85,6 +86,58 @@ class _SessionBase:
     def is_active(self) -> bool:
         """True once a SapModel connection is established."""
         return self._active
+
+    # ------------------------------------------------------------------
+    # Model lock cycle (ADR 0005 §2) — SAFETY-CRITICAL.
+    #
+    # ETABS locks the model after analysis. Unlocking to edit *deletes all
+    # analysis results*, so we never unlock implicitly: mutating composites
+    # call ``_require_unlocked()``, which raises and tells the user to call
+    # ``e.unlock()`` — making the destruction of results a conscious choice.
+    # ------------------------------------------------------------------
+
+    @property
+    def is_locked(self) -> bool:
+        """Whether the model is locked (locked after analysis runs)."""
+        return bool(ok(self.SapModel.GetModelIsLocked(), "GetModelIsLocked"))
+
+    def lock(self) -> "_SessionBase":
+        """Lock the model (``SetModelIsLocked(True)``). Returns ``self``."""
+        ok(self.SapModel.SetModelIsLocked(True), "SetModelIsLocked(True)")
+        if self._verbose:
+            print("Model locked.")
+        return self
+
+    def unlock(self) -> "_SessionBase":
+        """Unlock the model so it can be edited. Returns ``self``.
+
+        WARNING: unlocking **discards all analysis results** (ETABS deletes
+        them on ``SetModelIsLocked(False)``). This is irreversible; we warn
+        loudly so the loss is never silent. Re-run the analysis afterwards.
+        """
+        # Warn even when not verbose — the results loss must never be silent.
+        warnings.warn(
+            "Unlocking the ETABS model DISCARDS all analysis results; "
+            "re-run the analysis after editing.",
+            stacklevel=2,
+        )
+        if self._verbose:
+            print("Unlocking model — analysis results are being discarded.")
+        ok(self.SapModel.SetModelIsLocked(False), "SetModelIsLocked(False)")
+        return self
+
+    def _require_unlocked(self, op: str) -> None:
+        """Guard a mutating ``op``; raise :class:`ModelLockedError` if locked.
+
+        Mutating composites (``e.edit``, ``e.assign``) call this before any
+        write. We never unlock implicitly — the user must call ``e.unlock()``.
+        """
+        if self.is_locked:
+            raise ModelLockedError(
+                f"Cannot {op}: the model is locked (analysis has been run). "
+                "Call e.unlock() first — note that unlocking discards all "
+                "analysis results."
+            )
 
     # ------------------------------------------------------------------
     # Lifecycle

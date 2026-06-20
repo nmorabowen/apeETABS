@@ -18,7 +18,10 @@ Public construction contract
   are returned top-story-first to match ETABS.
 * ``units``   : ``(force_code, length_code, temp_code)`` integers (defaults
   ``(4, 6, 2)`` = kN, m, C). Mutated by ``SetPresentUnits_2``.
-* ``locked``  : initial model-locked flag.
+* ``locked``  : initial model-locked flag (``GetModelIsLocked`` /
+  ``SetModelIsLocked``). The ``FrameObj`` / ``AreaObj`` / ``PointObj``
+  collaborators record ``ChangeName`` / ``Delete`` / ``SetRestraint`` calls
+  for the editing layer (ADR 0005).
 
 Use :class:`MockETABS` as the application object exposing ``.SapModel`` plus the
 lifecycle stubs (``ApplicationStart`` / ``ApplicationExit`` / ``Visible`` /
@@ -115,6 +118,52 @@ class _Story:
         ]
 
 
+class _FrameObj:
+    """Fake ``cSapModel.FrameObj`` recording ChangeName/Delete calls."""
+
+    def __init__(self) -> None:
+        self.renamed: list[tuple[str, str]] = []
+        self.deleted: list[tuple[str, int]] = []
+
+    # ChangeName(Name, NewName) -> ret
+    def ChangeName(self, name, new_name):
+        self.renamed.append((name, new_name))
+        return 0
+
+    # Delete(Name, ItemType) -> ret
+    def Delete(self, name, item_type=0):
+        self.deleted.append((name, int(item_type)))
+        return 0
+
+
+class _AreaObj(_FrameObj):
+    """Fake ``cSapModel.AreaObj`` (same ChangeName/Delete contract)."""
+
+
+class _PointObj:
+    """Fake ``cSapModel.PointObj`` recording ChangeName/Delete/SetRestraint."""
+
+    def __init__(self) -> None:
+        self.renamed: list[tuple[str, str]] = []
+        self.deleted: list[tuple[str, int]] = []
+        self.restraints: list[tuple[str, list[bool], int]] = []
+
+    # ChangeName(Name, NewName) -> ret
+    def ChangeName(self, name, new_name):
+        self.renamed.append((name, new_name))
+        return 0
+
+    # Delete(Name, ItemType) -> ret
+    def Delete(self, name, item_type=0):
+        self.deleted.append((name, int(item_type)))
+        return 0
+
+    # SetRestraint(Name, Value, ItemType) -> ret
+    def SetRestraint(self, name, value, item_type=0):
+        self.restraints.append((name, [bool(v) for v in value], int(item_type)))
+        return 0
+
+
 class _File:
     """Fake ``cSapModel.File``."""
 
@@ -146,6 +195,11 @@ class MockSapModel:
         self.DatabaseTables = _DatabaseTables(self._tables)
         self.Story = _Story(stories) if stories is not None else None
         self.File = _File()
+
+        # Editing collaborators (ADR 0005): record ChangeName/Delete/SetRestraint.
+        self.FrameObj = _FrameObj()
+        self.AreaObj = _AreaObj()
+        self.PointObj = _PointObj()
 
     # ---- units --------------------------------------------------------
     # GetPresentUnits_2(force, length, temp) -> [force, length, temp, ret]

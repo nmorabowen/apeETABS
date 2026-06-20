@@ -32,7 +32,7 @@ from __future__ import annotations
 from ._session import _SessionBase
 from ._core import apeETABS
 from .enums import eForce, eLength, eTemperature
-from .errors import ETABSError, ConnectionError, ok
+from .errors import ETABSError, ConnectionError, ModelLockedError, ok
 
 # Ergonomic alias.
 ETABS = apeETABS
@@ -48,6 +48,7 @@ __all__ = [
     "eTemperature",
     "ETABSError",
     "ConnectionError",
+    "ModelLockedError",
     "ok",
     "__version__",
 ]
