@@ -14,5 +14,14 @@ from .Displacements import Displacements
 from .Profile import Profile
 from .Results import Results
 from .StoryDrifts import StoryDrifts
+from .StoryForces import StoryForces
+from .WallForces import WallForces
 
-__all__ = ["Results", "Displacements", "StoryDrifts", "Profile"]
+__all__ = [
+    "Results",
+    "Displacements",
+    "StoryDrifts",
+    "StoryForces",
+    "WallForces",
+    "Profile",
+]

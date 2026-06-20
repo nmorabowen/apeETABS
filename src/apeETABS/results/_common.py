@@ -205,6 +205,18 @@ def bake_units(
         ``{column: unit_label}`` for the converted columns, for plot axes.
     """
     length_unit = parent.units.length.name
+    force_unit = parent.units.force.name
+    # Axis-friendly unit label per dimension. Length uses the present length
+    # unit; force the present force unit; moment is force·length (e.g.
+    # "kN·m"); stress/pressure force/length²; area length². Anything else
+    # falls back to the present force unit (the dominant force-table dim).
+    dim_labels = {
+        "force": force_unit,
+        "moment": f"{force_unit}·{length_unit}",
+        "stress": f"{force_unit}/{length_unit}²",
+        "pressure": f"{force_unit}/{length_unit}²",
+        "area": f"{length_unit}²",
+    }
     labels: dict[str, str] = {}
     for col, dim in dim_map.items():
         if col not in df.columns:
@@ -214,7 +226,10 @@ def bake_units(
             continue
         factor = parent.units.factor(dim)
         df[col] = pd.to_numeric(df[col], errors="coerce") * factor
-        labels[col] = length_unit if dim in _LENGTH_DIMS else dim
+        if dim in _LENGTH_DIMS:
+            labels[col] = length_unit
+        else:
+            labels[col] = dim_labels.get(dim, force_unit)
     return labels
 
 

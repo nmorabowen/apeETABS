@@ -49,9 +49,9 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
         baking. Wired into `_COMPOSITES`. DONE (reviewed).
 - ☑ P3  Plotting layer (ADR 0004): `plotting/` drift/displacement profiles,
         style (opt-in), `e.plot` sugar. Wired. DONE (reviewed).
-- ☐ P4  Port force domains (ADR 0003 §7): `StoryForces`, `WallForces` +
-        their plots (stepped shear, barh forces, P/M/V triptych, envelopes).
-        Tests.  ⚑
+- ☑ P4  Force domains (ADR 0003 §7): `StoryForces`, `WallForces` + plots
+        (stepped shear, barh, P/M/V triptych, envelopes). DONE (reviewed; 1
+        HIGH blocker — scrambled shear staircase — found + fixed).
 - ☐ P5  Live validation pack: `scripts/live_smoke.py` that, given a running
         ETABS with a reference model open, exercises units/tables/stories/
         results/plot and prints a report. (MANUAL juncture — needs user.)
@@ -85,6 +85,10 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
 - [low] `StoryTable` is a 2nd public class in `Stories.py` (accepted snapshot
   pairing; revisit only if it bites).
 - [P5] Confirm display-table column maps against a real table dump (live).
+- [med] Builder↔plotter drift: plotting force tests use synthetic stubs whose
+  staircase shape ([12,12,8,8,4,4,0,0]) differs from the real builder
+  ([12,8,8,4,4,0]); add an INTEGRATION test (e.plot.story_shear over the real
+  StoryForces via the mock fixture) and align the stub.
 
 ## GitHub
 - Repo: PUBLIC `nmorabowen/apeETABS`; delivery = PR + merge per phase.

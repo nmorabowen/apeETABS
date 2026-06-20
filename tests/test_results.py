@@ -12,7 +12,14 @@ import pandas as pd
 import pytest
 
 from apeETABS.errors import ETABSError
-from apeETABS.results import Displacements, Profile, Results, StoryDrifts
+from apeETABS.results import (
+    Displacements,
+    Profile,
+    Results,
+    StoryDrifts,
+    StoryForces,
+    WallForces,
+)
 
 from .conftest import bind, make_mock
 
@@ -308,3 +315,164 @@ def test_empty_table_raises():
     r = Results(bind(make_mock(tables=empty)))
     with pytest.raises(ETABSError):
         r.story_drifts(case="EQX")
+
+
+# ----------------------------------------------------------------------
+# StoryForces
+# ----------------------------------------------------------------------
+
+def test_story_forces_builds_and_bakes_force_label():
+    e = bind(make_mock())
+    f = Results(e).story_forces(case="EQX")
+    assert isinstance(f, StoryForces)
+    assert f.case == "EQX"
+    # Force columns get a real force-unit label (not the raw dim key 'force').
+    assert f.units["VX"] == e.units.force.name
+    assert f.units["VX"] != "force"
+    # Moment label is force·length, not 'moment'.
+    assert "·" in f.units["MY"]
+    assert f.units["MY"] != "moment"
+
+
+def test_story_forces_shear_stacked_top_bottom():
+    e = bind(make_mock())
+    factor = e.units.force_factor
+    f = Results(e).story_forces(case="EQX")
+    p = f.shear(direction="X")
+    # 3 stories -> 6 stacked points (bottom,top per story), roof->base.
+    assert p.value.size == 6
+    # Cumulative shear: Story3 = 100, Story2 = 200, Story1 = 300 (kN),
+    # interleaved bottom/top. All equal per story here.
+    np.testing.assert_allclose(
+        p.value, np.array([100, 100, 200, 200, 300, 300]) * factor
+    )
+    assert p.unit == e.units.force.name
+
+
+def test_story_forces_shear_elevation_is_monotonic_staircase():
+    # Distinct per-story shear so value/elevation ordering is actually
+    # exercised (the old test used equal-per-story values, hiding the bug).
+    tables = {
+        "Story Forces": (
+            ["Story", "OutputCase", "Location", "StepType",
+             "P", "VX", "VY", "T", "MX", "MY"],
+            [
+                ["Story3", "EQX", "Top", "Max", "0", "10", "0", "0", "0", "0"],
+                ["Story3", "EQX", "Bottom", "Max", "0", "10", "0", "0", "0", "0"],
+                ["Story2", "EQX", "Top", "Max", "0", "25", "0", "0", "0", "0"],
+                ["Story2", "EQX", "Bottom", "Max", "0", "25", "0", "0", "0", "0"],
+                ["Story1", "EQX", "Top", "Max", "0", "40", "0", "0", "0", "0"],
+                ["Story1", "EQX", "Bottom", "Max", "0", "40", "0", "0", "0", "0"],
+            ],
+        ),
+        "Tower and Base Story Definitions": (
+            ["Tower", "BSName", "BSElev"],
+            [["T1", "Base", "0.0"]],
+        ),
+    }
+    e = bind(make_mock(tables=tables))
+    factor = e.units.force_factor
+    lf = e.units.length_factor
+    p = Results(e).story_forces(case="EQX")
+    sh = p.shear(direction="X")
+    # Elevation must be the clean monotonic (descending, roof->base) staircase
+    # aligned with the interleaved bottom/top value array, NOT the zig-zag.
+    np.testing.assert_allclose(
+        sh.elevation, np.array([12.0, 8.0, 8.0, 4.0, 4.0, 0.0]) * lf
+    )
+    # Strictly non-increasing (monotonic) — the property the bug violated.
+    assert np.all(np.diff(sh.elevation) <= 0)
+    # Distinct per-story shear stays aligned with the staircase.
+    np.testing.assert_allclose(
+        sh.value, np.array([10, 10, 25, 25, 40, 40]) * factor
+    )
+
+
+def test_story_forces_per_story_force_is_diff():
+    e = bind(make_mock())
+    factor = e.units.force_factor
+    f = Results(e).story_forces(case="EQX")
+    p = f.story_force(direction="X")
+    # diff of cumulative Top shear [100,200,300] with leading 0 -> [100,100,100].
+    np.testing.assert_allclose(p.value, np.array([100, 100, 100]) * factor)
+    assert p.stories == ["Story3", "Story2", "Story1"]
+
+
+def test_story_forces_unknown_direction_raises():
+    f = Results(bind(make_mock())).story_forces(case="EQX")
+    with pytest.raises(ETABSError):
+        f.shear(direction="Z")
+
+
+def test_story_forces_requires_one_selector():
+    r = Results(bind(make_mock()))
+    with pytest.raises(ETABSError):
+        r.story_forces()
+    with pytest.raises(ETABSError):
+        r.story_forces(case="EQX", combo="EQX")
+
+
+# ----------------------------------------------------------------------
+# WallForces
+# ----------------------------------------------------------------------
+
+def test_wall_forces_builds_with_piers_combos_and_state():
+    e = bind(make_mock())
+    w = Results(e).wall_forces()
+    assert isinstance(w, WallForces)
+    assert w.piers == ["P1"]
+    assert set(w.combos) == {"DStl1", "DStlE1"}
+    # State tag: combos containing 'E' are Dynamic, else Static.
+    states = dict(zip(w.df["Combo"], w.df["State"]))
+    assert states["DStl1"] == "Static"
+    assert states["DStlE1"] == "Dynamic"
+    # Force/moment labels are real units, not raw dim keys.
+    assert w.units["V2"] == e.units.force.name
+    assert "·" in w.units["M3"]
+
+
+def test_wall_forces_pier_slice_and_unknown():
+    w = Results(bind(make_mock())).wall_forces()
+    p1 = w.pier("P1")
+    assert isinstance(p1, pd.DataFrame)
+    assert set(p1["Pier"]) == {"P1"}
+    with pytest.raises(ETABSError):
+        w.pier("NOPE")
+
+
+def test_wall_forces_envelope_min_max_per_elevation():
+    e = bind(make_mock())
+    factor = e.units.force_factor
+    w = Results(e).wall_forces()
+    env = w.envelope("P1")
+    assert set(env) == {"P", "M3", "V2"}
+    # All Story3 rows map to elevation 12; V2 across both combos' Top/Bottom
+    # rows is {20, 22, 40, 42} -> min 20, max 42 (kN).
+    v2 = env["V2"]
+    story3_elev = e.units.length_factor * 12.0
+    assert v2.loc[story3_elev, "min"] == pytest.approx(20.0 * factor)
+    assert v2.loc[story3_elev, "max"] == pytest.approx(42.0 * factor)
+
+
+def test_wall_forces_amplification_metadata_not_baked():
+    e = bind(make_mock())
+    w_plain = Results(e).wall_forces()
+    assert w_plain.shear_amplification == 1.0
+
+    w = Results(e).wall_forces(
+        design_parameters={"overstrength": 1.25, "dynamic_amplification": 1.5}
+    )
+    # min(3, 1.25*1.5) = 1.875, stored as metadata only.
+    assert w.shear_amplification == pytest.approx(1.875)
+    # Not baked into the frame: V2 values match the unamplified snapshot.
+    np.testing.assert_allclose(
+        w.df["V2"].to_numpy(dtype=float),
+        w_plain.df["V2"].to_numpy(dtype=float),
+    )
+
+
+def test_wall_forces_amplification_capped_at_three():
+    w = Results(bind(make_mock())).wall_forces(
+        design_parameters={"overstrength": 2.0, "dynamic_amplification": 2.0}
+    )
+    assert w.shear_amplification == 3.0
