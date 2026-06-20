@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools >= 68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apeETABS"
+version = "0.1.0"
+description = "Human-centric Python wrapper around the CSI ETABS Open API for parsing, reporting, and (later) building models."
+requires-python = ">= 3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Nicolás Mora Bowen", email = "nmorabowen@gmail.com"},
+]
+
+dependencies = [
+    "comtypes",
+    "numpy",
+    "pandas",
+    "baseUnits",
+]
+
+[project.optional-dependencies]
+# Plotting layer (kept decoupled from the data/query core).
+plot = ["matplotlib"]
+# Fuzzy matching of OutputCase / table names for human-centric lookups.
+fuzzy = ["rapidfuzz"]
+# Attaching to a running instance by process id.
+process = ["psutil"]
+dev = ["pytest>=7", "ruff>=0.6"]
+
+[project.urls]
+"Homepage" = "https://github.com/nmorabowen/apeETABS"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"apeETABS" = ["py.typed"]
