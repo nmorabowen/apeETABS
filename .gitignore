@@ -10,3 +10,6 @@ dist/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
+
+# Generated validation/smoke figures (scripts/live_validate.py, live_smoke.py)
+scripts/out/

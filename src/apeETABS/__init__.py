@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from ._session import _SessionBase
 from ._core import apeETABS
+from .criteria import ASCE7, IrregularityCriteria
 from .enums import eForce, eLength, eLoadPatternType, eMatType, eTemperature
 from .errors import ETABSError, ConnectionError, ModelLockedError, ok
 from .creation.FrameHandle import FrameHandle
@@ -50,6 +51,8 @@ __all__ = [
     "eMatType",
     "eLoadPatternType",
     "FrameHandle",
+    "IrregularityCriteria",
+    "ASCE7",
     "ETABSError",
     "ConnectionError",
     "ModelLockedError",

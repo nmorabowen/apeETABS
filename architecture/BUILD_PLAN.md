@@ -66,7 +66,18 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
         structured `Outcome`/`Finding`, `ReportSpec` (read tier, real). DONE
         (reviewed; all claims held, no blockers).
 
-ALL PLANNED PHASES P0–P8 COMPLETE.
+- ☑ P9  Seismic irregularities (ADRs 0003+0004): `criteria.py`
+        (`IrregularityCriteria`/`ASCE7`, configurable thresholds) + result
+        domains `CentersMassRigidity` (CM/CR eccentricity + mass Type 2),
+        `StoryStiffness` (soft story Type 1a/1b), `TorsionIrregularity`
+        (TIR Type 1a/1b); pure plotters `center_mass_rigidity`/
+        `torsional_irregularity`/`soft_story`/`mass_irregularity` + `e.plot`
+        sugar. Ratios + ASCE 7 threshold lines + pass/fail flags. **Weak
+        story DEFERRED** (no analysis table for story strength — needs a
+        capacity source). DONE (reviewed; 2 independent adversarial reviewers,
+        no BLOCKER/MAJOR; 192 tests).
+
+ALL PLANNED PHASES P0–P9 COMPLETE.
 
 ## Conventions (from ADRs — enforce in review)
 - Composition only; no mixins. Composites talk via `self._parent.*`.
@@ -97,6 +108,37 @@ ALL PLANNED PHASES P0–P8 COMPLETE.
   and can't express arbitrary E/nu). Added `material_from_catalog()` using
   `AddMaterial` for the catalog path (Region/Standard/Grade strings need live
   validation). See PR #2.
+- [P9/LIVE-CONFIRM] RESOLVED (live, Casa 17B RevA, ETABS v22, 2026-06-21 via
+  `scripts/live_validate.py`). Findings + fixes applied:
+  * P5/med ALSO resolved: every `TableKey` == `TableName`; ETABS keys are
+    Title-Case.
+  * FIX: CM/CR real key is `"Centers Of Mass And Rigidity"` (was lowercase →
+    ret=-96). Corrected.
+  * FIX: torsion columns are `"Max Drift"`/`"Avg Drift"` (+ ready `"Ratio"`),
+    not `Maximum`/`Average`. Column map now maps both (alias kept for version
+    drift).
+  * Story Stiffness map (`StiffX`/`StiffY`) confirmed correct as-is.
+  * All 4 checks produced sane live results: mass found a real Type-2 flag
+    (Story1 ratio 1.52); soft story + torsion no flags (ratios ~1.0–2.9);
+    eccentricity NaN (see CR-None note). Figures in `scripts/out/p9_*.png`.
+- [P9/known] This model reports `XCR/YCR = None` (no rigid-diaphragm center of
+  rigidity) → eccentricity is NaN. Handled gracefully (no crash). Validate
+  eccentricity numerically on a model that DOES report CR.
+- [P9/med] Soft story / torsion are per-direction-PER-CASE (`StiffY≈0` under an
+  X case): assess X with the X seismic case (`Sx`), Y with `Sy`. Live-confirmed.
+  `live_validate.py` auto-picks the seismic case per axis.
+- [P9/low] `soft_story` assumes ONE stiffness row per story (true for static
+  lateral cases like `Sx`). A case with multiple step rows per story (some
+  RS/nonlinear) would break the adjacency arrays — add a per-story envelope/
+  dedupe if such cases are ever fed in.
+- [P9/med] CM/CR table may be per-DIAPHRAGM (>1 row/story). Casa 17B had 1
+  diaphragm/story so the plain roof→base shift was fine; `mass_check` still does
+  NOT groupby diaphragm — needs a per-diaphragm aggregate for multi-diaphragm
+  models. Re-check on Torre D / Vive Republica.
+- [P9] Weak story (strength irregularity, ASCE 7 Vert Type 5a/5b) DEFERRED:
+  story strength = Σ seismic-element shear capacities, not in any analysis
+  table. Decide a capacity source (design output vs user-supplied array)
+  before building.
 - [P8] `record` stage is in-memory only; add a persistence/audit store when
   realizing ADR 0007 beyond scaffolding. `ModelSpec`/`EditSpec` are stubs.
 - [low] RESOLVED: creation stub `NotImplementedError`s now tested.
@@ -118,6 +160,16 @@ ALL PLANNED PHASES P0–P8 COMPLETE.
 - P5+P6 done via wwtu4qsed; lock-safety review clean, no blockers; 121 tests.
 - P7+P8 done via whghnszy7; no blockers (1 low: deprecated SetMaterial); 158 tests.
 - ALL P0-P8 COMPLETE. Pushed to GitHub (public main).
+- P9 (seismic irregularities) done; 2 adversarial reviewers, no BLOCKER/MAJOR
+  (engineering review could not refute any of the 4 checks; arch review
+  confirmed ADR 0002/0003/0004 conformance); 192 tests, ruff clean. Weak
+  story deferred. Not yet committed.
+- P5/P9 LIVE VALIDATION done (2026-06-21, Casa 17B RevA, ETABS v22 via
+  `scripts/live_validate.py`, attach + auto-analyze). 2 real column-map bugs
+  found+fixed (CM/CR Title-Case key; torsion `Max Drift`/`Avg Drift`); P5/med
+  key-vs-name question resolved (key==name). All 4 checks render sane figures
+  on real data. New instrument: `scripts/live_validate.py` (schema dump + P9
+  exercise, forgiving). 192 tests still pass. Not yet committed.
 - Post-build: README + follow-up batch (builder↔plotter integration test,
   empty-table coverage, creation-stub coverage, e.plot-required cleanup); 164
   tests pass. Remaining follow-ups: deprecated SetMaterial, P8 audit store,

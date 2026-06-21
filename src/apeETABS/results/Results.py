@@ -14,9 +14,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .CentersMassRigidity import CentersMassRigidity
 from .Displacements import Displacements
 from .StoryDrifts import StoryDrifts
 from .StoryForces import StoryForces
+from .StoryStiffness import StoryStiffness
+from .TorsionIrregularity import TorsionIrregularity
 from .WallForces import WallForces
 
 if TYPE_CHECKING:
@@ -82,3 +85,35 @@ class Results:
         return WallForces.from_table(
             self._parent, design_parameters=design_parameters
         )
+
+    def centers_mass_rigidity(self) -> CentersMassRigidity:
+        """Centers of mass/rigidity (+ masses) for every story (no case/combo).
+
+        Example:
+            >>> c = e.results.centers_mass_rigidity()
+            >>> c.eccentricity()                  # |XCM-XCR|, |YCM-YCR| per story
+            >>> c.mass_check()                    # ASCE 7 vertical Type 2 (mass)
+        """
+        return CentersMassRigidity.from_table(self._parent)
+
+    def story_stiffness(
+        self, *, case: str | None = None, combo: str | None = None
+    ) -> StoryStiffness:
+        """Lateral story stiffness for exactly one ``case=`` or ``combo=``.
+
+        Example:
+            >>> s = e.results.story_stiffness(case="EQX")
+            >>> s.soft_story(direction="X")       # ASCE 7 vertical Type 1a/1b
+        """
+        return StoryStiffness.from_table(self._parent, case=case, combo=combo)
+
+    def torsion_irregularity(
+        self, *, case: str | None = None, combo: str | None = None
+    ) -> TorsionIrregularity:
+        """Torsional max/avg drift ratios for exactly one ``case=``/``combo=``.
+
+        Example:
+            >>> t = e.results.torsion_irregularity(case="EQX")
+            >>> t.ratios(direction="X")           # ASCE 7 horizontal Type 1a/1b
+        """
+        return TorsionIrregularity.from_table(self._parent, case=case, combo=combo)
