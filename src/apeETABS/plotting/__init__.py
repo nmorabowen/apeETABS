@@ -21,6 +21,12 @@ from __future__ import annotations
 from . import style
 from .profiles import drift_profile, displacement_profile
 from .forces import story_shear, story_forces, wall_forces, wall_force_envelopes
+from .irregularities import (
+    center_mass_rigidity,
+    torsional_irregularity,
+    soft_story,
+    mass_irregularity,
+)
 from .Plot import Plot
 
 __all__ = [
@@ -31,5 +37,9 @@ __all__ = [
     "story_forces",
     "wall_forces",
     "wall_force_envelopes",
+    "center_mass_rigidity",
+    "torsional_irregularity",
+    "soft_story",
+    "mass_irregularity",
     "Plot",
 ]

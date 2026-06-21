@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from . import forces, profiles
+from . import forces, irregularities, profiles
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -54,6 +54,21 @@ class Plot:
         if snapshot is not None:
             return snapshot
         return self._parent.results.wall_forces(design_parameters=design_parameters)
+
+    def _resolve_centers_mass_rigidity(self, snapshot):
+        if snapshot is not None:
+            return snapshot
+        return self._parent.results.centers_mass_rigidity()
+
+    def _resolve_story_stiffness(self, snapshot, *, case, combo):
+        if snapshot is not None:
+            return snapshot
+        return self._parent.results.story_stiffness(case=case, combo=combo)
+
+    def _resolve_torsion(self, snapshot, *, case, combo):
+        if snapshot is not None:
+            return snapshot
+        return self._parent.results.torsion_irregularity(case=case, combo=combo)
 
     # ------------------------------------------------------------------
     # Sugar methods
@@ -142,3 +157,49 @@ class Plot:
         if amplification is None:
             amplification = getattr(snap, "shear_amplification", None)
         return forces.wall_force_envelopes(snap, pier, amplification=amplification, **kw)
+
+    # ------------------------------------------------------------------
+    # Irregularity sugar (P9)
+    # ------------------------------------------------------------------
+
+    def cm_cr(
+        self,
+        snapshot: Any = None,
+        **kw: Any,
+    ) -> tuple["Figure", "Axes"]:
+        """Plan CM/CR scatter from a snapshot or a fetched CentersMassRigidity."""
+        snap = self._resolve_centers_mass_rigidity(snapshot)
+        return irregularities.center_mass_rigidity(snap, **kw)
+
+    def torsional_irregularity(
+        self,
+        snapshot: Any = None,
+        *,
+        case: str | None = None,
+        combo: str | None = None,
+        **kw: Any,
+    ) -> tuple["Figure", "Axes"]:
+        """Plot torsional ratios from a snapshot or a fetched selection."""
+        snap = self._resolve_torsion(snapshot, case=case, combo=combo)
+        return irregularities.torsional_irregularity(snap, **kw)
+
+    def soft_story(
+        self,
+        snapshot: Any = None,
+        *,
+        case: str | None = None,
+        combo: str | None = None,
+        **kw: Any,
+    ) -> tuple["Figure", Any]:
+        """Plot the soft-story two-panel from a snapshot or a fetched selection."""
+        snap = self._resolve_story_stiffness(snapshot, case=case, combo=combo)
+        return irregularities.soft_story(snap, **kw)
+
+    def mass_irregularity(
+        self,
+        snapshot: Any = None,
+        **kw: Any,
+    ) -> tuple["Figure", Any]:
+        """Plot the mass-irregularity two-panel from a snapshot or fetch."""
+        snap = self._resolve_centers_mass_rigidity(snapshot)
+        return irregularities.mass_irregularity(snap, **kw)
