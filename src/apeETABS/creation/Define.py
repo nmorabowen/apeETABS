@@ -86,6 +86,11 @@ class Define:
         """
         self._parent._require_unlocked(f"define material {name!r}")
         mat_type = _coerce_mat(kind)
+        # SetMaterial is soft-DEPRECATED in the OAPI, but it remains the correct
+        # primitive for *custom* user-defined-property materials: it creates a
+        # blank named material of a type so SetMPIsotropic can stamp arbitrary
+        # E/nu/alpha. AddMaterial is catalog-driven and cannot express arbitrary
+        # E/nu — see material_from_catalog for that path.
         ok(
             self._parent.SapModel.PropMaterial.SetMaterial(name, int(mat_type)),
             f"SetMaterial {name!r}",
@@ -105,6 +110,55 @@ class Define:
         if self._parent._verbose:
             print(f"Defined material {name!r} ({mat_type.name}).")
         return name
+
+    def material_from_catalog(
+        self,
+        *,
+        kind: str | eMatType | int = "Concrete",
+        region: str,
+        standard: str,
+        grade: str,
+        name: str | None = None,
+    ) -> str:
+        """Add a material FROM THE ETABS CATALOG via ``cPropMaterial.AddMaterial``.
+
+        Unlike :meth:`material` (which builds a *custom* material and stamps
+        arbitrary ``E``/``nu`` via the deprecated ``SetMaterial``), this picks a
+        predefined material out of the ETABS catalog identified by a
+        ``Region``/``Standard``/``Grade`` triple, and returns the
+        program-assigned material name. It cannot express arbitrary ``E``/``nu``.
+
+        Args:
+            kind: Material type — ``"Concrete"`` (default), ``"Steel"``,
+                ``"Rebar"``, … (a name, int code, or :class:`eMatType`).
+            region: Catalog region (e.g. ``"United States"``).
+            standard: Catalog standard (e.g. ``"ASTM A615"``).
+            grade: Catalog grade (e.g. ``"Grade 60"``).
+            name: Optional ``UserName`` for the material; when omitted ETABS
+                assigns the name.
+
+        .. note::
+            The ``region``/``standard``/``grade`` strings are
+            **ETABS-catalog-specific** — their valid values depend on the
+            installed ETABS version and are validated only against a live
+            model, not by apeETABS.
+
+        Returns:
+            The program-assigned material name (ADR 0006 §4).
+        """
+        self._parent._require_unlocked("define material from catalog")
+        mat_type = _coerce_mat(kind)
+        # AddMaterial's Name is a ref/out param: it comes back as the first
+        # element of the ok() result alongside the status return.
+        assigned = ok(
+            self._parent.SapModel.PropMaterial.AddMaterial(
+                "", int(mat_type), region, standard, grade, name or ""
+            ),
+            f"AddMaterial ({region}/{standard}/{grade})",
+        )
+        if self._parent._verbose:
+            print(f"Added catalog material {assigned!r} ({mat_type.name}).")
+        return assigned
 
     # ------------------------------------------------------------------
     # Frame sections

@@ -92,8 +92,11 @@ ALL PLANNED PHASES P0–P8 COMPLETE.
   human name. Confirm/normalize against a live `e.tables.available()` dump.
 - [low] `Edit.delete` hardcodes eItemType.Objects (single-name only); adopt
   `_Target` if/when bulk delete is added.
-- [P7/low] `Define.material` uses the DEPRECATED `cPropMaterial.SetMaterial`;
-  migrate to `AddMaterial` (Region/Standard/Grade) when hardening creation.
+- [P7/low] RESOLVED (decision): `material()` stays on `SetMaterial` — the
+  correct primitive for CUSTOM-property materials (AddMaterial is catalog-only
+  and can't express arbitrary E/nu). Added `material_from_catalog()` using
+  `AddMaterial` for the catalog path (Region/Standard/Grade strings need live
+  validation). See PR #2.
 - [P8] `record` stage is in-memory only; add a persistence/audit store when
   realizing ADR 0007 beyond scaffolding. `ModelSpec`/`EditSpec` are stubs.
 - [low] RESOLVED: creation stub `NotImplementedError`s now tested.

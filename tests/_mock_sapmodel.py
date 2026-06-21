@@ -220,11 +220,32 @@ class _PropMaterial:
     def __init__(self) -> None:
         self.materials: list[tuple[str, int]] = []
         self.isotropic: list[tuple[str, float, float, float]] = []
+        # Catalog adds (ADR 0006): record AddMaterial calls.
+        self.catalog: list[dict] = []
 
     # SetMaterial(Name, MatType, Color, Notes, GUID) -> ret
     def SetMaterial(self, name, mat_type, *_rest):
         self.materials.append((name, int(mat_type)))
         return 0
+
+    # AddMaterial(ref Name, MatType, Region, Standard, Grade, UserName)
+    #   -> [Name, ret]
+    def AddMaterial(self, _name, mat_type, region, standard, grade, user=""):
+        # ETABS assigns the name; the mock returns the UserName when given,
+        # else falls back to the grade (or "Mat1"). The production code must
+        # read this back rather than assume the input Name.
+        name = user or grade or "Mat1"
+        self.catalog.append(
+            {
+                "type": int(mat_type),
+                "region": region,
+                "standard": standard,
+                "grade": grade,
+                "user": user,
+                "name": name,
+            }
+        )
+        return [name, 0]
 
     # SetMPIsotropic(Name, E, U, A, Temp) -> ret
     def SetMPIsotropic(self, name, E, U, A, temp=0.0):

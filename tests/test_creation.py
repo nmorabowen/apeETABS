@@ -49,6 +49,40 @@ def test_material_unknown_kind_raises():
         e.define.material("X", kind="Unobtainium")
 
 
+def test_material_from_catalog_calls_addmaterial_and_returns_name():
+    e = bind(make_mock(locked=False))
+    name = e.define.material_from_catalog(
+        kind="Rebar",
+        region="United States",
+        standard="ASTM A615",
+        grade="Grade 60",
+    )
+    # No UserName given -> ETABS-assigned name; the mock falls back to grade.
+    assert name == "Grade 60"
+    call = e.SapModel.PropMaterial.catalog[-1]
+    # eMatType.Rebar == 6.
+    assert call["type"] == 6
+    assert call["region"] == "United States"
+    assert call["standard"] == "ASTM A615"
+    assert call["grade"] == "Grade 60"
+    assert call["user"] == ""
+
+
+def test_material_from_catalog_honors_requested_name():
+    e = bind(make_mock(locked=False))
+    name = e.define.material_from_catalog(
+        region="United States",
+        standard="ACI 318",
+        grade="4000Psi",
+        name="MyConc",
+    )
+    assert name == "MyConc"
+    call = e.SapModel.PropMaterial.catalog[-1]
+    # eMatType.Concrete == 2 (default kind).
+    assert call["type"] == 2
+    assert call["user"] == "MyConc"
+
+
 def test_frame_rect_calls_setrectangle_and_returns_name():
     e = bind(make_mock(locked=False))
     name = e.define.frame_rect("R1", material="C30", depth=0.6, width=0.3)
@@ -118,6 +152,14 @@ def test_define_material_raises_when_locked():
     e = bind(make_mock(locked=True))
     with pytest.raises(ModelLockedError, match="unlock"):
         e.define.material("C30")
+
+
+def test_define_material_from_catalog_raises_when_locked():
+    e = bind(make_mock(locked=True))
+    with pytest.raises(ModelLockedError, match="unlock"):
+        e.define.material_from_catalog(
+            region="United States", standard="ACI 318", grade="4000Psi"
+        )
 
 
 def test_define_frame_rect_raises_when_locked():
