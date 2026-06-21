@@ -297,6 +297,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--model", default=None,
                    help="Path to a .EDB to LAUNCH+open. Omit to attach to a "
                         "running ETABS instance.")
+    p.add_argument("--pid", type=int, default=None,
+                   help="Attach to a specific ETABS process id (use when the "
+                        "active-object attach returns None, a known ETABS quirk).")
     p.add_argument("--analyze", action="store_true",
                    help="Run analysis first if the model is not yet analyzed "
                         "(unlocked). No-op on an already-analyzed model.")
@@ -314,6 +317,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.model:
             print(f"  Launching ETABS and opening: {args.model}")
             e = apeETABS(path=args.model, verbose=True).connect()
+        elif args.pid is not None:
+            print(f"  Attaching to ETABS process id {args.pid}...")
+            e = apeETABS(process_id=args.pid, verbose=True).connect()
         else:
             print("  Attaching to the running ETABS instance...")
             e = apeETABS(attach=True, verbose=True).connect()
@@ -329,8 +335,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  Could not read lock state: {exc}")
 
         _maybe_analyze(e, requested=args.analyze)
-
         e.units.use_report_system()
+
         pairs = _dump_available(e)
         _dump_schema(e, pairs)
 

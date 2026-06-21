@@ -131,10 +131,36 @@ ALL PLANNED PHASES P0–P9 COMPLETE.
   lateral cases like `Sx`). A case with multiple step rows per story (some
   RS/nonlinear) would break the adjacency arrays — add a per-story envelope/
   dedupe if such cases are ever fed in.
-- [P9/med] CM/CR table may be per-DIAPHRAGM (>1 row/story). Casa 17B had 1
-  diaphragm/story so the plain roof→base shift was fine; `mass_check` still does
-  NOT groupby diaphragm — needs a per-diaphragm aggregate for multi-diaphragm
-  models. Re-check on Torre D / Vive Republica.
+- [P9/med] CM/CR table may be per-DIAPHRAGM (>1 row/story). Casa 17B (2 rows)
+  AND Vive Republica (24 rows, 24 stories) both had 1 diaphragm/story, so the
+  plain roof→base shift held. `mass_check` still does NOT groupby diaphragm —
+  needs a per-diaphragm aggregate for a genuinely multi-diaphragm model (still
+  unexercised; neither reference model triggers it).
+- [P9/decided] Mass Type 2 stays the SYMMETRIC test (decided 2026-06-21). Live
+  on Vive Republica it flagged a floor below a light roof (481 vs 278, ratio
+  1.73), which ASCE 7's roof exemption arguably skips. Kept as intentional
+  conservatism (never misses; may over-report) — documented in `mass_check`.
+- [P10/PARKED 2026-06-21] Center-of-rigidity recovery (eccentricity is NaN
+  because ETABS reports `XCR/YCR = None`). PARKED after live investigation;
+  the validated TIR check already covers the ASCE 7 torsion assessment, so CR
+  eccentricity is a supplementary diagnostic. Findings (Vive Republica, ETABS
+  v22):
+  * Root cause is NOT semi-rigid diaphragms — `Diaphragm Definitions` shows D1
+    = **Rigid**, assigned to 757 areas, master joints exist (e.g. Point 2036),
+    and `Diaphragm Center Of Mass Displacements` is fully populated (UX/UY/RZ).
+    ETABS simply does NOT export XCR/YCR via the DatabaseTables API (a table/
+    version quirk) even though it models the rigid diaphragm.
+  * Dead-end #1 (rigid flip): diaphragm already rigid → nothing to flip;
+    `SetDiaphragm(D1, False)` returns ret=1.
+  * Dead-end #2 (rotation method): the diaphragm master joint is
+    analysis-generated, not a persistent loadable point — `SetLoadForce` on it
+    returns ret=0 but produces ZERO response (orphaned on re-analysis).
+  * Viable-but-unbuilt paths if revisited: (a) load REAL persistent joints and
+    solve each diaphragm's 3×3 flexibility with offset correction (rigorous,
+    big); (b) read-only shear-centroid approximation under Sx/Sy (approximate,
+    no mutation). The temp-copy safety harness (Save→work→reopen original,
+    cleanup all `.$et`/`.ico` artifacts by stem) was built + adversarially
+    reviewed and works live — reuse it if (a) is pursued.
 - [P9] Weak story (strength irregularity, ASCE 7 Vert Type 5a/5b) DEFERRED:
   story strength = Σ seismic-element shear capacities, not in any analysis
   table. Decide a capacity source (design output vs user-supplied array)

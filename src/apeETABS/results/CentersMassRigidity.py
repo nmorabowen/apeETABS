@@ -88,7 +88,9 @@ class CentersMassRigidity:
         """Per-story CM<->CR eccentricity ``ex=|XCM-XCR|``, ``ey=|YCM-YCR|``.
 
         Returns a roof->base DataFrame with ``Story, Elevation, ex, ey`` in
-        report length units.
+        report length units. NOTE: ``ex/ey`` are NaN when ETABS reports no
+        center of rigidity (``XCR/YCR`` empty) — observed on real models even
+        with rigid diaphragms (see the parked CR follow-up in BUILD_PLAN).
         """
         df = self.df
         xcm = pd.to_numeric(df["XCM"], errors="coerce")
@@ -118,6 +120,13 @@ class CentersMassRigidity:
         the *heavier-than-neighbor* test (``mass > 1.5*adjacent``) naturally
         exempts a light roof (a roof lighter than the floor below is not
         considered per ASCE 7).
+
+        INTENTIONAL CONSERVATISM (decided 2026-06-21, confirmed against a live
+        24-story model): the symmetric test will ALSO flag the floor directly
+        below a light roof (floor > 1.5*roof), which ASCE 7's "a roof that is
+        lighter than the floor below need not be considered" arguably exempts.
+        We keep the symmetric form deliberately — it never misses a heavy story
+        and may over-report; the engineer judges flagged stories in context.
 
         Returns ``Story, Elevation, mass, ratio_above, ratio_below, irregular``.
         Robust to a single-story model (no adjacent -> not irregular).
