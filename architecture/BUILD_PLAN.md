@@ -182,7 +182,10 @@ ALL PLANNED PHASES P0–P9 COMPLETE. P11 (standards) scaffolded; logic pending.
     user-defined `SetUser`. Confirm `SapModel.Func.FuncRS.SetUser(name, n,
     period[], value[], damp)` against live/docs before building.
   * ☐ `load_case` incl. response-spectrum (`cLoadCases`/`cCaseResponseSpectrum`).
-  * ☐ finish `assign.loads` (`c*Obj.SetLoad*`).
+  * ☑ `assign.loads` DONE — three setters `point_force` (`SetLoadForce`),
+    `frame_distributed` (`SetLoadDistributed`), `area_uniform`
+    (`SetLoadUniform`); named direction map (`Gravity`/`X`/`Y`/…). Replaces the
+    generic `loads` stub.
   Then the per-code `e.standards.*` logic (NEC-15 first), external spectrum lib
   lazily imported.
 - [P11/LIVE-CONFIRM] `combo`/`mass_source` are mock-verified only. Confirm live:

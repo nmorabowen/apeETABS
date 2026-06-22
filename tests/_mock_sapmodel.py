@@ -144,6 +144,8 @@ class _FrameObj:
         self._auto = 0
         # frame name -> (i_point_name, j_point_name) served by GetPoints.
         self._points: dict[str, tuple[str, str]] = {}
+        # Loadings (ADR 0008 assign primitive): record distributed loads.
+        self.dist_loads: list[dict] = []
 
     # ChangeName(Name, NewName) -> ret
     def ChangeName(self, name, new_name):
@@ -175,9 +177,34 @@ class _FrameObj:
         pi, pj = self._points.get(name, ("", ""))
         return [pi, pj, 0]
 
+    # SetLoadDistributed(Name, LoadPat, MyType, Dir, Dist1, Dist2, Val1, Val2,
+    #   CSys, RelDist, Replace, ItemType) -> ret
+    def SetLoadDistributed(self, name, pat, my_type, direction, d1, d2, v1, v2,
+                           csys="Global", rel=True, replace=True, item_type=0):
+        self.dist_loads.append({
+            "name": name, "pat": pat, "type": int(my_type), "dir": int(direction),
+            "d1": float(d1), "d2": float(d2), "v1": float(v1), "v2": float(v2),
+            "csys": csys, "rel": bool(rel), "replace": bool(replace),
+            "item_type": int(item_type),
+        })
+        return 0
+
 
 class _AreaObj(_FrameObj):
-    """Fake ``cSapModel.AreaObj`` (same ChangeName/Delete contract)."""
+    """Fake ``cSapModel.AreaObj`` recording SetLoadUniform (+ FrameObj contract)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.uniform_loads: list[dict] = []
+
+    # SetLoadUniform(Name, LoadPat, Value, Dir, Replace, CSys, ItemType) -> ret
+    def SetLoadUniform(self, name, pat, value, direction, replace=True,
+                       csys="Global", item_type=0):
+        self.uniform_loads.append({
+            "name": name, "pat": pat, "value": float(value), "dir": int(direction),
+            "replace": bool(replace), "csys": csys, "item_type": int(item_type),
+        })
+        return 0
 
 
 class _PointObj:
@@ -190,6 +217,8 @@ class _PointObj:
         # Creation (ADR 0006): record AddCartesian calls.
         self.added: list[dict] = []
         self._auto = 0
+        # Loadings (ADR 0008 assign primitive): record point forces.
+        self.forces: list[dict] = []
 
     # ChangeName(Name, NewName) -> ret
     def ChangeName(self, name, new_name):
@@ -204,6 +233,15 @@ class _PointObj:
     # SetRestraint(Name, Value, ItemType) -> ret
     def SetRestraint(self, name, value, item_type=0):
         self.restraints.append((name, [bool(v) for v in value], int(item_type)))
+        return 0
+
+    # SetLoadForce(Name, LoadPat, Value, Replace, CSys, ItemType) -> ret
+    def SetLoadForce(self, name, pat, value, replace=False, csys="Global",
+                     item_type=0):
+        self.forces.append({
+            "name": name, "pat": pat, "value": [float(v) for v in value],
+            "replace": bool(replace), "csys": csys, "item_type": int(item_type),
+        })
         return 0
 
     # AddCartesian(X, Y, Z, ref Name, UserName, CSys, ...) -> [Name, ret]
