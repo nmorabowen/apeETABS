@@ -21,7 +21,7 @@ sessions) and routes each COM return through ``ok()`` (fail-loud, no rollback).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from ..enums import eMatType
 from ..errors import ETABSError, ok
@@ -243,6 +243,56 @@ class Define:
         )
         if self._parent._verbose:
             print(f"Defined load pattern {name!r} ({pat_type.name}).")
+        return name
+
+    def response_spectrum_function(
+        self,
+        name: str,
+        periods: Sequence[float],
+        values: Sequence[float],
+        *,
+        damping: float = 0.05,
+    ) -> str:
+        """Define a user response-spectrum function via ``cFunctionRS.SetUser``.
+
+        Args:
+            name: The function name.
+            periods: Period ordinates in seconds (paired with ``values``).
+            values: Spectral acceleration ordinates — **normalized/unitless**;
+                ETABS applies the units via the scale factor on the response-
+                spectrum load case that references this function.
+            damping: Damping ratio (default ``0.05`` = 5%).
+
+        Returns:
+            The function name (ADR 0006 §4).
+        """
+        # LIVE-CONFIRM: access path SapModel.Func.FuncRS (ETABSv1; cFunction
+        # exposes FuncRS) and SetUser(Name, NumberItems, Period[], Value[],
+        # DampRatio) — confirmed via CSI docs, not the (partial) bundled
+        # reference. Verify on a live model.
+        self._parent._require_unlocked(
+            f"define response spectrum function {name!r}"
+        )
+        per = [float(p) for p in periods]
+        val = [float(v) for v in values]
+        if len(per) != len(val):
+            raise ETABSError(
+                f"response_spectrum_function {name!r}: periods ({len(per)}) and "
+                f"values ({len(val)}) must be the same length."
+            )
+        if len(per) < 2:
+            raise ETABSError(
+                f"response_spectrum_function {name!r} needs at least 2 points."
+            )
+        ok(
+            self._parent.SapModel.Func.FuncRS.SetUser(
+                name, len(per), per, val, float(damping)
+            ),
+            f"FuncRS.SetUser {name!r}",
+        )
+        if self._parent._verbose:
+            print(f"Defined RS function {name!r} ({len(per)} pts, "
+                  f"damping={damping}).")
         return name
 
     # ------------------------------------------------------------------

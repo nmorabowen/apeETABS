@@ -177,10 +177,10 @@ ALL PLANNED PHASES P0–P9 COMPLETE. P11 (standards) scaffolded; logic pending.
 - [P11] Neutral `e.define` compile targets for `e.standards` (ADR 0008 §2):
   * ☑ `combo` (`cCombo.Add` + `SetCaseList_1`; `eComboType`/`eCNameType`) DONE.
   * ☑ `mass_source` (`cPropMaterial.SetMassSource_1`) DONE.
-  * ☐ `response_spectrum_function` — deferred: the decompiled `cFunctionRS`
-    reference only documents code-specific setters (NTC2008/2018), not the
-    user-defined `SetUser`. Confirm `SapModel.Func.FuncRS.SetUser(name, n,
-    period[], value[], damp)` against live/docs before building.
+  * ☑ `response_spectrum_function` DONE — `SapModel.Func.FuncRS.SetUser(name,
+    n, period[], value[], damp)`; values normalized/unitless (scaled by the RS
+    case). Signature confirmed via CSI docs (bundled reference only had the
+    NTC setters); access path marked # LIVE-CONFIRM in code.
   * ☐ `load_case` incl. response-spectrum (`cLoadCases`/`cCaseResponseSpectrum`).
   * ☑ `assign.loads` DONE — three setters `point_force` (`SetLoadForce`),
     `frame_distributed` (`SetLoadDistributed`), `area_uniform`
