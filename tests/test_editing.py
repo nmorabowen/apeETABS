@@ -156,11 +156,88 @@ def test_restraint_rejects_wrong_dof_count():
         e.assign.restraint("N1", [True, True, True])
 
 
-@pytest.mark.parametrize("meth", ["modifiers", "releases", "loads"])
+@pytest.mark.parametrize("meth", ["modifiers", "releases"])
 def test_assign_stubs_not_implemented(meth):
     e = bind(make_mock(locked=False))
     with pytest.raises(NotImplementedError):
         getattr(e.assign, meth)()
+
+
+# ----------------------------------------------------------------------
+# Loadings (ADR 0008 assign primitives) — point/frame/area load setters.
+# ----------------------------------------------------------------------
+
+
+def test_point_force_records_six_components():
+    e = bind(make_mock(locked=False))
+    e.assign.point_force("N1", pattern="Dead", fz=-10.0, mx=2.0)
+    rec = e.SapModel.PointObj.forces
+    assert len(rec) == 1
+    assert rec[0]["name"] == "N1" and rec[0]["pat"] == "Dead"
+    assert rec[0]["value"] == [0.0, 0.0, -10.0, 2.0, 0.0, 0.0]
+    assert rec[0]["item_type"] == 0  # Objects
+
+
+def test_area_uniform_default_direction_is_gravity():
+    e = bind(make_mock(locked=False))
+    e.assign.area_uniform("A1", pattern="Live", value=2.5)
+    rec = e.SapModel.AreaObj.uniform_loads[0]
+    assert rec["name"] == "A1" and rec["value"] == 2.5
+    assert rec["dir"] == 10  # Gravity
+
+
+def test_area_uniform_named_direction_maps_to_code():
+    e = bind(make_mock(locked=False))
+    e.assign.area_uniform("A1", pattern="W", value=1.0, direction="X")
+    assert e.SapModel.AreaObj.uniform_loads[0]["dir"] == 4  # X
+
+
+def test_frame_distributed_uniform_defaults_vals_to_value():
+    e = bind(make_mock(locked=False))
+    e.assign.frame_distributed("B1", pattern="Dead", value=-5.0)
+    rec = e.SapModel.FrameObj.dist_loads[0]
+    assert rec["name"] == "B1" and rec["type"] == 1  # force
+    assert rec["dir"] == 10  # Gravity
+    assert rec["v1"] == -5.0 and rec["v2"] == -5.0  # uniform
+    assert rec["d1"] == 0.0 and rec["d2"] == 1.0 and rec["rel"] is True
+
+
+def test_frame_distributed_trapezoidal_and_moment_kind():
+    e = bind(make_mock(locked=False))
+    e.assign.frame_distributed(
+        "B1", pattern="Dead", value=0.0, val_start=1.0, val_end=3.0, kind="moment"
+    )
+    rec = e.SapModel.FrameObj.dist_loads[0]
+    assert rec["type"] == 2  # moment
+    assert rec["v1"] == 1.0 and rec["v2"] == 3.0
+
+
+def test_load_unknown_direction_raises():
+    from apeETABS.errors import ETABSError
+    e = bind(make_mock(locked=False))
+    with pytest.raises(ETABSError, match="Unknown direction"):
+        e.assign.area_uniform("A1", pattern="Dead", value=1.0, direction="Bogus")
+
+
+def test_frame_distributed_unknown_kind_raises():
+    from apeETABS.errors import ETABSError
+    e = bind(make_mock(locked=False))
+    with pytest.raises(ETABSError, match="Unknown load kind"):
+        e.assign.frame_distributed("B1", pattern="Dead", value=1.0, kind="bogus")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda a: a.point_force("N1", pattern="Dead", fz=-1.0),
+        lambda a: a.frame_distributed("B1", pattern="Dead", value=-1.0),
+        lambda a: a.area_uniform("A1", pattern="Dead", value=-1.0),
+    ],
+)
+def test_load_setters_raise_when_locked(call):
+    e = bind(make_mock(locked=True))
+    with pytest.raises(ModelLockedError, match="unlock"):
+        call(e.assign)
 
 
 # ----------------------------------------------------------------------
