@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from .creation.Define import Define
     from .creation.Create import Create
     from .creation.New import New
+    from .standards.Standards import Standards
 
 
 class apeETABS(_SessionBase):
@@ -70,6 +71,8 @@ class apeETABS(_SessionBase):
         ("define",  ".creation.Define", "Define", False),
         ("create",  ".creation.Create", "Create", False),
         ("new",     ".creation.New",    "New",    False),
+        # Standards layer (ADR 0008): opinionated presets over the builders.
+        ("standards", ".standards.Standards", "Standards", False),
     )
 
     # Static type declarations for composites (created at runtime by begin()).
@@ -83,3 +86,4 @@ class apeETABS(_SessionBase):
     define: "Define"
     create: "Create"
     new: "New"
+    standards: "Standards"
