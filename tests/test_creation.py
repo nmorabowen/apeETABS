@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from apeETABS import FrameHandle, ModelLockedError
+from apeETABS.errors import ETABSError
 
 from .conftest import bind, make_mock
 
@@ -234,12 +235,6 @@ def test_define_section_stub_raises():
         e.define.section()
 
 
-def test_define_combo_stub_raises():
-    e = bind(make_mock(locked=False))
-    with pytest.raises(NotImplementedError, match="Define.combo"):
-        e.define.combo()
-
-
 def test_define_diaphragm_stub_raises():
     e = bind(make_mock(locked=False))
     with pytest.raises(NotImplementedError, match="Define.diaphragm"):
@@ -262,3 +257,78 @@ def test_creation_composites_are_wired():
     assert e.define is not None
     assert e.create is not None
     assert e.new is not None
+
+
+# ----------------------------------------------------------------------
+# Define.combo (ADR 0008 compile target) — cCombo.Add + SetCaseList_1.
+# ----------------------------------------------------------------------
+
+
+def test_combo_adds_and_lists_cases():
+    e = bind(make_mock(locked=False))
+    name = e.define.combo("ENV", {"Sx": 1.0, "Sy": 0.3}, kind="Envelope")
+    assert name == "ENV"
+    combo = e.SapModel.RespCombo
+    assert combo.added == [("ENV", 1)]  # Envelope == 1
+    # Each case recorded as (CNameType=LoadCase(0), name, mode=0, sf).
+    assert combo.case_lists["ENV"] == [(0, "Sx", 0, 1.0), (0, "Sy", 0, 0.3)]
+
+
+def test_combo_default_kind_is_linear_additive():
+    e = bind(make_mock(locked=False))
+    e.define.combo("C1", {"Dead": 1.2, "Live": 1.6})
+    assert e.SapModel.RespCombo.added == [("C1", 0)]  # LinearAdditive == 0
+
+
+def test_combo_case_type_loadcombo():
+    e = bind(make_mock(locked=False))
+    e.define.combo("C2", {"C1": 1.0}, case_type="LoadCombo")
+    assert e.SapModel.RespCombo.case_lists["C2"] == [(1, "C1", 0, 1.0)]
+
+
+def test_combo_empty_cases_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(ETABSError, match="at least one case"):
+        e.define.combo("C", {})
+
+
+def test_combo_unknown_kind_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(ETABSError, match="Unknown combo kind"):
+        e.define.combo("C", {"Sx": 1.0}, kind="Bogus")
+
+
+def test_combo_raises_when_locked():
+    e = bind(make_mock(locked=True))
+    with pytest.raises(ModelLockedError, match="unlock"):
+        e.define.combo("C", {"Sx": 1.0})
+
+
+# ----------------------------------------------------------------------
+# Define.mass_source (ADR 0008 compile target) — SetMassSource_1.
+# ----------------------------------------------------------------------
+
+
+def test_mass_source_from_loads():
+    e = bind(make_mock(locked=False))
+    e.define.mass_source(from_loads={"Dead": 1.0, "Live": 0.25})
+    ms = e.SapModel.PropMaterial.mass_source
+    assert ms["elements"] is True and ms["added"] is True
+    assert ms["loads"] is True  # IncludeLoads true because loads present
+    assert ms["n"] == 2
+    assert ms["pats"] == ["Dead", "Live"]
+    assert ms["sf"] == [1.0, 0.25]
+
+
+def test_mass_source_no_loads_sets_include_loads_false():
+    e = bind(make_mock(locked=False))
+    e.define.mass_source(include_added_mass=False)
+    ms = e.SapModel.PropMaterial.mass_source
+    assert ms["loads"] is False and ms["n"] == 0 and ms["pats"] == []
+    assert ms["added"] is False and ms["elements"] is True
+
+
+def test_mass_source_raises_when_locked():
+    e = bind(make_mock(locked=True))
+    with pytest.raises(ModelLockedError, match="unlock"):
+        e.define.mass_source(from_loads={"Dead": 1.0})

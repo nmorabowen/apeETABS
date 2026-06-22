@@ -259,14 +259,99 @@ class Define:
             "Define.section is not implemented yet (P7 ships frame_rect only)."
         )
 
-    def combo(self, *args, **kwargs):
-        """Define a load combination (wraps ``cCombo.Add`` / ``SetCaseList``).
+    def combo(
+        self,
+        name: str,
+        cases: dict[str, float],
+        *,
+        kind: str = "LinearAdditive",
+        case_type: str = "LoadCase",
+    ) -> str:
+        """Define a load combination via ``cCombo.Add`` + ``SetCaseList_1``.
 
-        Not implemented yet — P7 ships material/frame_rect/load_pattern only.
+        Args:
+            name: The combination name.
+            cases: ``{case_or_combo_name: scale_factor}`` — the contributing
+                cases/combos and their factors. Must be non-empty.
+            kind: Combination type (``eComboType``): ``"LinearAdditive"``
+                (default), ``"Envelope"``, ``"AbsoluteAdditive"``, ``"SRSS"``,
+                ``"RangeAdditive"``.
+            case_type: Whether the ``cases`` keys are load ``"LoadCase"``
+                (default) or ``"LoadCombo"`` names (``eCNameType``).
+
+        Returns:
+            The combination name (ADR 0006 §4).
         """
-        raise NotImplementedError(
-            "Define.combo is not implemented yet (P7 ships the core defines)."
+        from ..enums import eCNameType, eComboType
+
+        self._parent._require_unlocked(f"define combo {name!r}")
+        if not cases:
+            raise ETABSError(
+                f"Combo {name!r} needs at least one case in `cases`."
+            )
+        try:
+            combo_type = eComboType[kind]
+        except KeyError:
+            valid = ", ".join(m.name for m in eComboType)
+            raise ETABSError(
+                f"Unknown combo kind '{kind}'. Valid: {valid}."
+            ) from None
+        try:
+            cname_type = eCNameType[case_type]
+        except KeyError:
+            valid = ", ".join(m.name for m in eCNameType)
+            raise ETABSError(
+                f"Unknown case_type '{case_type}'. Valid: {valid}."
+            ) from None
+
+        combo = self._parent.SapModel.RespCombo
+        ok(combo.Add(name, int(combo_type)), f"RespCombo.Add {name!r}")
+        for cname, sf in cases.items():
+            # SetCaseList_1(Name, CNameType, CName, ModeNumber, SF); ModeNumber
+            # is unused for case/combo contributions (0).
+            ok(
+                combo.SetCaseList_1(name, int(cname_type), str(cname), 0, float(sf)),
+                f"RespCombo.SetCaseList_1 {name!r} <- {cname!r}",
+            )
+        if self._parent._verbose:
+            print(f"Defined combo {name!r} ({combo_type.name}, {len(cases)} cases).")
+        return name
+
+    def mass_source(
+        self,
+        *,
+        from_loads: dict[str, float] | None = None,
+        include_elements: bool = True,
+        include_added_mass: bool = True,
+    ) -> None:
+        """Set the model mass source via ``cPropMaterial.SetMassSource_1``.
+
+        Args:
+            from_loads: ``{load_pattern: scale_factor}`` contributing to mass
+                (e.g. ``{"Dead": 1.0, "Live": 0.25}``). Omit/empty to include no
+                load-derived mass.
+            include_elements: Include element self-mass (``IncludeElements``).
+            include_added_mass: Include assigned added mass (``IncludeAddedMass``).
+        """
+        self._parent._require_unlocked("set mass source")
+        loads = from_loads or {}
+        pats = [str(p) for p in loads]
+        sfs = [float(s) for s in loads.values()]
+        ok(
+            self._parent.SapModel.PropMaterial.SetMassSource_1(
+                bool(include_elements),
+                bool(include_added_mass),
+                bool(bool(loads)),  # IncludeLoads: true iff any load contributes
+                len(pats),
+                pats,
+                sfs,
+            ),
+            "PropMaterial.SetMassSource_1",
         )
+        if self._parent._verbose:
+            src = ", ".join(f"{p}×{s}" for p, s in loads.items()) or "(no loads)"
+            print(f"Set mass source: elements={include_elements}, "
+                  f"added={include_added_mass}, loads=[{src}].")
 
     def diaphragm(self, *args, **kwargs):
         """Define a diaphragm (wraps ``cDiaphragm.SetDiaphragm``).

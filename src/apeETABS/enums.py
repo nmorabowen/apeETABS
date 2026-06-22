@@ -74,3 +74,20 @@ class eLoadPatternType(IntEnum):
     PatternLive = 13
     Wave = 14
     Braking = 15
+
+
+class eComboType(IntEnum):
+    """Load-combination type (``cCombo.Add`` ``ComboType`` argument)."""
+
+    LinearAdditive = 0
+    Envelope = 1
+    AbsoluteAdditive = 2
+    SRSS = 3
+    RangeAdditive = 4
+
+
+class eCNameType(IntEnum):
+    """Case/combo discriminator (``cCombo.SetCaseList_1`` ``CNameType``)."""
+
+    LoadCase = 0
+    LoadCombo = 1
