@@ -77,7 +77,16 @@ Status: ☐ pending · ◑ in progress · ☑ done · ⚑ review juncture
         capacity source). DONE (reviewed; 2 independent adversarial reviewers,
         no BLOCKER/MAJOR; 192 tests).
 
-ALL PLANNED PHASES P0–P9 COMPLETE.
+- ◑ P11 Standard presets (ADR 0008 — NEW): `e.standards` composite
+        (`Standards`), an opinionated, code-keyed preset tier that composes the
+        neutral `e.define`/`e.assign` builders (no COM of its own). SCAFFOLD
+        SHIPPED: ADR 0008 written, composite wired into `_COMPOSITES`, all
+        methods stubbed (`materials`/`seismic_patterns`/`gravity_loads`/
+        `spectrum`/`combos`/`mass_source`), wiring + stub contract tested
+        (199 tests). Logic per design code (NEC first) still to build. Needs
+        the missing `e.define` compile targets first (see follow-ups).
+
+ALL PLANNED PHASES P0–P9 COMPLETE. P11 (standards) scaffolded; logic pending.
 
 ## Conventions (from ADRs — enforce in review)
 - Composition only; no mixins. Composites talk via `self._parent.*`.
@@ -165,6 +174,12 @@ ALL PLANNED PHASES P0–P9 COMPLETE.
   story strength = Σ seismic-element shear capacities, not in any analysis
   table. Decide a capacity source (design output vs user-supplied array)
   before building.
+- [P11] Build the missing neutral `e.define` compile targets that
+  `e.standards` needs (ADR 0008 §2): `response_spectrum_function` (`cFunctionRS`),
+  `load_case` incl. response-spectrum (`cLoadCases`/`cCaseResponseSpectrum`),
+  `mass_source`; finish the `combo` (`cCombo`) and `assign.loads` stubs. THEN
+  build the per-code `e.standards.*` logic (NEC-15 first), with the external
+  spectrum-library adapter lazily imported.
 - [P8] `record` stage is in-memory only; add a persistence/audit store when
   realizing ADR 0007 beyond scaffolding. `ModelSpec`/`EditSpec` are stubs.
 - [low] RESOLVED: creation stub `NotImplementedError`s now tested.
