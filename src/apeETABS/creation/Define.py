@@ -295,6 +295,89 @@ class Define:
                   f"damping={damping}).")
         return name
 
+    def modal_case(
+        self,
+        name: str,
+        *,
+        max_modes: int = 12,
+        min_modes: int = 1,
+    ) -> str:
+        """Define a modal (eigen) load case via ``cCaseModalEigen``.
+
+        Creates/initializes the case (``SetCase``) and sets the mode count
+        (``SetNumberModes``); other modal parameters keep ETABS defaults.
+
+        Returns:
+            The case name (ADR 0006 §4).
+        """
+        self._parent._require_unlocked(f"define modal case {name!r}")
+        modal = self._parent.SapModel.LoadCases.ModalEigen
+        ok(modal.SetCase(name), f"ModalEigen.SetCase {name!r}")
+        ok(
+            modal.SetNumberModes(name, int(max_modes), int(min_modes)),
+            f"ModalEigen.SetNumberModes {name!r}",
+        )
+        if self._parent._verbose:
+            print(f"Defined modal case {name!r} ({min_modes}..{max_modes} modes).")
+        return name
+
+    def response_spectrum_case(
+        self,
+        name: str,
+        *,
+        modal_case: str,
+        loads: dict[str, tuple[str, float]],
+        csys: str = "Global",
+        angle: float = 0.0,
+    ) -> str:
+        """Define a response-spectrum load case via ``cCaseResponseSpectrum``.
+
+        Args:
+            name: The case name.
+            modal_case: The modal case this RS case uses (must already exist).
+            loads: ``{direction: (function_name, scale_factor)}`` where
+                ``direction`` is an ETABS RS direction (``"U1"``/``"U2"``/
+                ``"U3"``/``"R1"``…) and ``function_name`` is a defined RS
+                function (see :meth:`response_spectrum_function`).
+            csys: Coordinate system for the loads (default Global).
+            angle: Load angle in degrees (default 0).
+
+        Modal/directional combination and damping keep ETABS defaults (CQC /
+        SRSS / the function damping); explicit control is a follow-up (those
+        setters are absent from the bundled OAPI reference).
+
+        Returns:
+            The case name (ADR 0006 §4).
+        """
+        # LIVE-CONFIRM: SapModel.LoadCases.ResponseSpectrum.{SetCase,SetLoads,
+        # SetModalCase} access path + SetLoads parallel-array marshalling.
+        self._parent._require_unlocked(
+            f"define response spectrum case {name!r}"
+        )
+        if not loads:
+            raise ETABSError(
+                f"RS case {name!r} needs at least one direction in `loads`."
+            )
+        dirs = list(loads)
+        funcs = [str(loads[d][0]) for d in dirs]
+        sfs = [float(loads[d][1]) for d in dirs]
+        csys_list = [csys] * len(dirs)
+        angs = [float(angle)] * len(dirs)
+        rs = self._parent.SapModel.LoadCases.ResponseSpectrum
+        ok(rs.SetCase(name), f"ResponseSpectrum.SetCase {name!r}")
+        ok(
+            rs.SetLoads(name, len(dirs), dirs, funcs, sfs, csys_list, angs),
+            f"ResponseSpectrum.SetLoads {name!r}",
+        )
+        ok(
+            rs.SetModalCase(name, str(modal_case)),
+            f"ResponseSpectrum.SetModalCase {name!r}",
+        )
+        if self._parent._verbose:
+            print(f"Defined RS case {name!r} (modal={modal_case!r}, "
+                  f"{len(dirs)} directions).")
+        return name
+
     # ------------------------------------------------------------------
     # Stubs — documented, not yet implemented (ADR 0006 §2).
     # ------------------------------------------------------------------

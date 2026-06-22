@@ -330,6 +330,56 @@ class _Func:
         self.FuncRS = _FuncRS()
 
 
+class _CaseModalEigen:
+    """Fake ``cSapModel.LoadCases.ModalEigen`` recording SetCase/SetNumberModes."""
+
+    def __init__(self) -> None:
+        self.cases: list[str] = []
+        self.modes: dict[str, tuple[int, int]] = {}
+
+    def SetCase(self, name):
+        self.cases.append(name)
+        return 0
+
+    def SetNumberModes(self, name, max_modes, min_modes):
+        self.modes[name] = (int(max_modes), int(min_modes))
+        return 0
+
+
+class _CaseResponseSpectrum:
+    """Fake ``cSapModel.LoadCases.ResponseSpectrum`` recording SetCase/Loads/Modal."""
+
+    def __init__(self) -> None:
+        self.cases: list[str] = []
+        self.loads: dict[str, dict] = {}
+        self.modal: dict[str, str] = {}
+
+    def SetCase(self, name):
+        self.cases.append(name)
+        return 0
+
+    # SetLoads(Name, NumberLoads, LoadName, Func, SF, CSys, Ang) -> ret
+    def SetLoads(self, name, n, load_name, func, sf, csys, ang):
+        self.loads[name] = {
+            "n": int(n), "dirs": list(load_name), "funcs": list(func),
+            "sf": [float(s) for s in sf], "csys": list(csys),
+            "ang": [float(a) for a in ang],
+        }
+        return 0
+
+    def SetModalCase(self, name, modal_case):
+        self.modal[name] = modal_case
+        return 0
+
+
+class _LoadCases:
+    """Fake ``cSapModel.LoadCases`` exposing ModalEigen + ResponseSpectrum."""
+
+    def __init__(self) -> None:
+        self.ModalEigen = _CaseModalEigen()
+        self.ResponseSpectrum = _CaseResponseSpectrum()
+
+
 class _RespCombo:
     """Fake ``cSapModel.RespCombo`` recording Add + SetCaseList_1."""
 
@@ -438,6 +488,7 @@ class MockSapModel:
         self.LoadPatterns = _LoadPatterns()
         self.RespCombo = _RespCombo()
         self.Func = _Func()
+        self.LoadCases = _LoadCases()
 
     # ---- units --------------------------------------------------------
     # GetPresentUnits_2(force, length, temp) -> [force, length, temp, ret]

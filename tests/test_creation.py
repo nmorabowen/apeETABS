@@ -374,3 +374,57 @@ def test_response_spectrum_function_raises_when_locked():
     e = bind(make_mock(locked=True))
     with pytest.raises(ModelLockedError, match="unlock"):
         e.define.response_spectrum_function("F", [0.0, 1.0], [1.0, 0.5])
+
+
+# ----------------------------------------------------------------------
+# Define.modal_case / response_spectrum_case (ADR 0008) — cCaseModalEigen /
+# cCaseResponseSpectrum.
+# ----------------------------------------------------------------------
+
+
+def test_modal_case_sets_case_and_mode_count():
+    e = bind(make_mock(locked=False))
+    name = e.define.modal_case("MODAL", max_modes=20, min_modes=3)
+    assert name == "MODAL"
+    me = e.SapModel.LoadCases.ModalEigen
+    assert me.cases == ["MODAL"]
+    assert me.modes["MODAL"] == (20, 3)
+
+
+def test_modal_case_defaults():
+    e = bind(make_mock(locked=False))
+    e.define.modal_case("M")
+    assert e.SapModel.LoadCases.ModalEigen.modes["M"] == (12, 1)
+
+
+def test_response_spectrum_case_sets_case_loads_modal():
+    e = bind(make_mock(locked=False))
+    name = e.define.response_spectrum_case(
+        "RSx", modal_case="MODAL",
+        loads={"U1": ("NEC", 9.81), "U2": ("NEC", 9.81)},
+    )
+    assert name == "RSx"
+    rs = e.SapModel.LoadCases.ResponseSpectrum
+    assert rs.cases == ["RSx"]
+    assert rs.modal["RSx"] == "MODAL"
+    ld = rs.loads["RSx"]
+    assert ld["n"] == 2
+    assert ld["dirs"] == ["U1", "U2"]
+    assert ld["funcs"] == ["NEC", "NEC"]
+    assert ld["sf"] == [9.81, 9.81]
+    assert ld["csys"] == ["Global", "Global"]
+    assert ld["ang"] == [0.0, 0.0]
+
+
+def test_response_spectrum_case_empty_loads_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(ETABSError, match="at least one direction"):
+        e.define.response_spectrum_case("RS", modal_case="M", loads={})
+
+
+def test_load_cases_raise_when_locked():
+    e = bind(make_mock(locked=True))
+    with pytest.raises(ModelLockedError, match="unlock"):
+        e.define.modal_case("M")
+    with pytest.raises(ModelLockedError, match="unlock"):
+        e.define.response_spectrum_case("RS", modal_case="M", loads={"U1": ("F", 1.0)})

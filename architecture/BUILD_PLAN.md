@@ -181,7 +181,13 @@ ALL PLANNED PHASES P0–P9 COMPLETE. P11 (standards) scaffolded; logic pending.
     n, period[], value[], damp)`; values normalized/unitless (scaled by the RS
     case). Signature confirmed via CSI docs (bundled reference only had the
     NTC setters); access path marked # LIVE-CONFIRM in code.
-  * ☐ `load_case` incl. response-spectrum (`cLoadCases`/`cCaseResponseSpectrum`).
+  * ☑ `load_case` DONE — `modal_case` (`cCaseModalEigen.SetCase`/
+    `SetNumberModes`) + `response_spectrum_case` (`cCaseResponseSpectrum.SetCase`/
+    `SetLoads`/`SetModalCase`). Modal/directional combination + damping keep
+    ETABS defaults (CQC/SRSS) — their `Set*` methods are ABSENT from the bundled
+    reference; explicit control is a follow-up. Access paths # LIVE-CONFIRM.
+  ALL P11 define/assign primitives now built. Next: the per-code `e.standards.*`
+  logic.
   * ☑ `assign.loads` DONE — three setters `point_force` (`SetLoadForce`),
     `frame_distributed` (`SetLoadDistributed`), `area_uniform`
     (`SetLoadUniform`); named direction map (`Gravity`/`X`/`Y`/…). Replaces the
