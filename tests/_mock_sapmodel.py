@@ -306,6 +306,30 @@ class _PropMaterial:
         return 0
 
 
+class _FuncRS:
+    """Fake ``cSapModel.Func.FuncRS`` recording SetUser."""
+
+    def __init__(self) -> None:
+        self.user: list[dict] = []
+
+    # SetUser(Name, NumberItems, Period, Value, DampRatio) -> ret
+    def SetUser(self, name, n, period, value, damp):
+        self.user.append({
+            "name": name, "n": int(n),
+            "period": [float(p) for p in period],
+            "value": [float(v) for v in value],
+            "damp": float(damp),
+        })
+        return 0
+
+
+class _Func:
+    """Fake ``cSapModel.Func`` exposing the FuncRS sub-interface."""
+
+    def __init__(self) -> None:
+        self.FuncRS = _FuncRS()
+
+
 class _RespCombo:
     """Fake ``cSapModel.RespCombo`` recording Add + SetCaseList_1."""
 
@@ -413,6 +437,7 @@ class MockSapModel:
         self.PropFrame = _PropFrame()
         self.LoadPatterns = _LoadPatterns()
         self.RespCombo = _RespCombo()
+        self.Func = _Func()
 
     # ---- units --------------------------------------------------------
     # GetPresentUnits_2(force, length, temp) -> [force, length, temp, ret]

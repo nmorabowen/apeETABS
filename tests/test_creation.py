@@ -332,3 +332,45 @@ def test_mass_source_raises_when_locked():
     e = bind(make_mock(locked=True))
     with pytest.raises(ModelLockedError, match="unlock"):
         e.define.mass_source(from_loads={"Dead": 1.0})
+
+
+# ----------------------------------------------------------------------
+# Define.response_spectrum_function (ADR 0008) — cFunctionRS.SetUser.
+# ----------------------------------------------------------------------
+
+
+def test_response_spectrum_function_records_setuser():
+    e = bind(make_mock(locked=False))
+    name = e.define.response_spectrum_function(
+        "NEC", periods=[0.0, 0.5, 1.0, 2.0], values=[0.4, 1.0, 0.6, 0.3]
+    )
+    assert name == "NEC"
+    rec = e.SapModel.Func.FuncRS.user[0]
+    assert rec["name"] == "NEC" and rec["n"] == 4
+    assert rec["period"] == [0.0, 0.5, 1.0, 2.0]
+    assert rec["value"] == [0.4, 1.0, 0.6, 0.3]
+    assert rec["damp"] == 0.05  # default 5%
+
+
+def test_response_spectrum_function_custom_damping():
+    e = bind(make_mock(locked=False))
+    e.define.response_spectrum_function("F", [0.0, 1.0], [1.0, 0.5], damping=0.02)
+    assert e.SapModel.Func.FuncRS.user[0]["damp"] == 0.02
+
+
+def test_response_spectrum_function_length_mismatch_raises():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(ETABSError, match="same length"):
+        e.define.response_spectrum_function("F", [0.0, 1.0], [1.0])
+
+
+def test_response_spectrum_function_needs_two_points():
+    e = bind(make_mock(locked=False))
+    with pytest.raises(ETABSError, match="at least 2 points"):
+        e.define.response_spectrum_function("F", [0.0], [1.0])
+
+
+def test_response_spectrum_function_raises_when_locked():
+    e = bind(make_mock(locked=True))
+    with pytest.raises(ModelLockedError, match="unlock"):
+        e.define.response_spectrum_function("F", [0.0, 1.0], [1.0, 0.5])
