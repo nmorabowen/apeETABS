@@ -174,12 +174,21 @@ ALL PLANNED PHASES P0–P9 COMPLETE. P11 (standards) scaffolded; logic pending.
   story strength = Σ seismic-element shear capacities, not in any analysis
   table. Decide a capacity source (design output vs user-supplied array)
   before building.
-- [P11] Build the missing neutral `e.define` compile targets that
-  `e.standards` needs (ADR 0008 §2): `response_spectrum_function` (`cFunctionRS`),
-  `load_case` incl. response-spectrum (`cLoadCases`/`cCaseResponseSpectrum`),
-  `mass_source`; finish the `combo` (`cCombo`) and `assign.loads` stubs. THEN
-  build the per-code `e.standards.*` logic (NEC-15 first), with the external
-  spectrum-library adapter lazily imported.
+- [P11] Neutral `e.define` compile targets for `e.standards` (ADR 0008 §2):
+  * ☑ `combo` (`cCombo.Add` + `SetCaseList_1`; `eComboType`/`eCNameType`) DONE.
+  * ☑ `mass_source` (`cPropMaterial.SetMassSource_1`) DONE.
+  * ☐ `response_spectrum_function` — deferred: the decompiled `cFunctionRS`
+    reference only documents code-specific setters (NTC2008/2018), not the
+    user-defined `SetUser`. Confirm `SapModel.Func.FuncRS.SetUser(name, n,
+    period[], value[], damp)` against live/docs before building.
+  * ☐ `load_case` incl. response-spectrum (`cLoadCases`/`cCaseResponseSpectrum`).
+  * ☐ finish `assign.loads` (`c*Obj.SetLoad*`).
+  Then the per-code `e.standards.*` logic (NEC-15 first), external spectrum lib
+  lazily imported.
+- [P11/LIVE-CONFIRM] `combo`/`mass_source` are mock-verified only. Confirm live:
+  the `SapModel.RespCombo` access path for `cCombo`, and the ref-bool
+  marshalling/return shape of `SetMassSource_1` (its first 3 args are `ref bool`
+  inputs).
 - [P8] `record` stage is in-memory only; add a persistence/audit store when
   realizing ADR 0007 beyond scaffolding. `ModelSpec`/`EditSpec` are stubs.
 - [low] RESOLVED: creation stub `NotImplementedError`s now tested.

@@ -222,6 +222,8 @@ class _PropMaterial:
         self.isotropic: list[tuple[str, float, float, float]] = []
         # Catalog adds (ADR 0006): record AddMaterial calls.
         self.catalog: list[dict] = []
+        # Mass source (ADR 0008 define primitive): record SetMassSource_1.
+        self.mass_source: dict | None = None
 
     # SetMaterial(Name, MatType, Color, Notes, GUID) -> ret
     def SetMaterial(self, name, mat_type, *_rest):
@@ -250,6 +252,41 @@ class _PropMaterial:
     # SetMPIsotropic(Name, E, U, A, Temp) -> ret
     def SetMPIsotropic(self, name, E, U, A, temp=0.0):
         self.isotropic.append((name, float(E), float(U), float(A)))
+        return 0
+
+    # SetMassSource_1(IncludeElements, IncludeAddedMass, IncludeLoads,
+    #   NumberLoads, LoadPat, sf) -> ret
+    def SetMassSource_1(self, elements, added, loads, n, load_pat, sf):
+        self.mass_source = {
+            "elements": bool(elements),
+            "added": bool(added),
+            "loads": bool(loads),
+            "n": int(n),
+            "pats": list(load_pat),
+            "sf": [float(s) for s in sf],
+        }
+        return 0
+
+
+class _RespCombo:
+    """Fake ``cSapModel.RespCombo`` recording Add + SetCaseList_1."""
+
+    def __init__(self) -> None:
+        self.added: list[tuple[str, int]] = []
+        # name -> list of (cname_type, cname, mode, sf)
+        self.case_lists: dict[str, list[tuple[int, str, int, float]]] = {}
+
+    # Add(Name, ComboType) -> ret
+    def Add(self, name, combo_type):
+        self.added.append((name, int(combo_type)))
+        self.case_lists.setdefault(name, [])
+        return 0
+
+    # SetCaseList_1(Name, CNameType, CName, ModeNumber, SF) -> ret
+    def SetCaseList_1(self, name, cname_type, cname, mode, sf):
+        self.case_lists.setdefault(name, []).append(
+            (int(cname_type), str(cname), int(mode), float(sf))
+        )
         return 0
 
 
@@ -337,6 +374,7 @@ class MockSapModel:
         self.PropMaterial = _PropMaterial()
         self.PropFrame = _PropFrame()
         self.LoadPatterns = _LoadPatterns()
+        self.RespCombo = _RespCombo()
 
     # ---- units --------------------------------------------------------
     # GetPresentUnits_2(force, length, temp) -> [force, length, temp, ret]
