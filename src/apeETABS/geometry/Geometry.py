@@ -56,8 +56,8 @@ class Geometry:
         return _springs.read_springs(self._sap, self._point_names())
 
     def diaphragms(self) -> list[dict]:
-        """Named diaphragms: ``[{name, nodes}]`` (joint + area-level membership)."""
-        return _diaphragms.read_diaphragms(self._sap, self._point_names(), self.areas())
+        """Named diaphragms: ``[{name, nodes}]``, one planar group per floor."""
+        return _diaphragms.read_diaphragms(self._sap, self.points(), self.areas())
 
     # ------------------------------------------------------------------
     # Properties (only the sections/materials actually referenced)

@@ -225,6 +225,31 @@ def geo_etabs_exotic() -> apeETABS:
     return bind(make_mock(geometry=EXOTIC_GEOMETRY))
 
 
+# Two slabs at different elevations sharing the single diaphragm name "D1"
+# (how ETABS models a multi-story rigid floor) — must split into one planar
+# diaphragm per floor.
+MULTISTORY_GEOMETRY = GeometrySpec(
+    points={
+        "1": (0.0, 0.0, 3.0), "2": (4.0, 0.0, 3.0),
+        "3": (4.0, 4.0, 3.0), "4": (0.0, 4.0, 3.0),
+        "5": (0.0, 0.0, 6.0), "6": (4.0, 0.0, 6.0),
+        "7": (4.0, 4.0, 6.0), "8": (0.0, 4.0, 6.0),
+    },
+    areas={
+        "S1": AreaSpec(["1", "2", "3", "4"], "SLAB", diaphragm="D1"),
+        "S2": AreaSpec(["5", "6", "7", "8"], "SLAB", diaphragm="D1"),
+    },
+    slab_sections={"SLAB": {"material": "C30", "thickness": 0.2}},
+    materials={"C30": {"E": 2.5e7, "nu": 0.2, "rho": 2.4}},
+)
+
+
+@pytest.fixture
+def geo_etabs_multistory() -> apeETABS:
+    """apeETABS with one diaphragm name reused across two floors."""
+    return bind(make_mock(geometry=MULTISTORY_GEOMETRY))
+
+
 @pytest.fixture
 def geo_etabs_loadsets() -> apeETABS:
     """apeETABS whose model applies gravity via shell uniform load sets."""

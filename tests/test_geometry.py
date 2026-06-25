@@ -68,6 +68,15 @@ def test_diaphragms(geo_etabs):
     assert set(d1["nodes"]) == {"5", "6", "7", "8"}
 
 
+def test_diaphragm_split_per_floor(geo_etabs_multistory):
+    # One ETABS diaphragm name reused on two floors must split into two planar
+    # rigid diaphragms, one per elevation.
+    diaphragms = {d["name"]: d for d in geo_etabs_multistory.geometry.diaphragms()}
+    assert set(diaphragms) == {"D1@3", "D1@6"}
+    assert set(diaphragms["D1@3"]["nodes"]) == {"1", "2", "3", "4"}
+    assert set(diaphragms["D1@6"]["nodes"]) == {"5", "6", "7", "8"}
+
+
 def test_sections(geo_etabs):
     sections = {s["name"]: s for s in geo_etabs.geometry.sections()}
     assert set(sections) == {"COL400", "BEAM300", "SLAB200", "WALL250"}
