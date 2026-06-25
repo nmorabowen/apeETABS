@@ -280,3 +280,26 @@ def profile_arrays(
     value = pd.to_numeric(df[value_col], errors="coerce").to_numpy(dtype=float)
     stories = [str(s) for s in df["Story"].tolist()]
     return elev, value, stories
+
+
+def by_joint(df: pd.DataFrame, cols: list[str]) -> dict[str, tuple[float, ...]]:
+    """Reduce a result frame to one largest-magnitude value-vector per joint.
+
+    Keyed by the ``Point`` column; for each requested column the per-DOF
+    largest-magnitude value across the joint's rows is taken (so Max/Min step
+    pairs collapse to the governing magnitude). Absent columns read as ``0.0``.
+    Used by the result snapshots' ``by_joint`` accessors (ADR 0009 cross-check).
+    """
+    if "Point" not in df.columns:
+        raise ETABSError("result table has no joint identifier ('Point').")
+    out: dict[str, tuple[float, ...]] = {}
+    for point, grp in df.groupby("Point"):
+        vec: list[float] = []
+        for col in cols:
+            if col in grp.columns:
+                vals = pd.to_numeric(grp[col], errors="coerce").dropna()
+                vec.append(float(vals.loc[vals.abs().idxmax()]) if not vals.empty else 0.0)
+            else:
+                vec.append(0.0)
+        out[str(point)] = tuple(vec)
+    return out

@@ -119,6 +119,15 @@ class Displacements:
             unit=self.units.get(col, ""),
         )
 
+    def by_joint(self) -> dict[str, tuple[float, float, float, float, float, float]]:
+        """``{joint_id: (Ux,Uy,Uz,Rx,Ry,Rz)}`` for the cross-check.
+
+        One 6-vector per joint; when several rows share a joint (e.g. Max/Min
+        steps) the per-DOF largest-magnitude value is taken. Missing columns
+        (e.g. rotations absent from the table) read as zero.
+        """
+        return _common.by_joint(self.df, _VALUE_COLS)
+
     def peak(self, *, direction: str = "X", step: str = "Max") -> tuple[float, str]:
         """The largest-magnitude displacement and its story, across joints."""
         col = _direction_col(direction)
