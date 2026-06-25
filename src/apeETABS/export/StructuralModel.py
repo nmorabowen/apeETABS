@@ -148,6 +148,19 @@ class Spring:
 
 
 @dataclass(frozen=True, slots=True)
+class AreaSpring:
+    area: str
+    k: tuple[float, float, float]
+    property: str | None = None
+
+    def to_dict(self) -> dict:
+        d: dict = {"area": self.area, "k": list(self.k)}
+        if self.property is not None:
+            d["property"] = self.property
+        return d
+
+
+@dataclass(frozen=True, slots=True)
 class Diaphragm:
     name: str
     nodes: tuple[str, ...]
@@ -223,6 +236,7 @@ class StructuralModel:
     materials: list[Material] = field(default_factory=list)
     restraints: list[Restraint] = field(default_factory=list)
     springs: list[Spring] = field(default_factory=list)
+    area_springs: list[AreaSpring] = field(default_factory=list)
     diaphragms: list[Diaphragm] = field(default_factory=list)
     loads: list[LoadPattern] = field(default_factory=list)
     source: dict = field(default_factory=dict)
@@ -251,6 +265,8 @@ class StructuralModel:
             d["restraints"] = [r.to_dict() for r in self.restraints]
         if self.springs:
             d["springs"] = [s.to_dict() for s in self.springs]
+        if self.area_springs:
+            d["area_springs"] = [s.to_dict() for s in self.area_springs]
         if self.diaphragms:
             d["diaphragms"] = [dp.to_dict() for dp in self.diaphragms]
         if self.loads:
@@ -340,6 +356,7 @@ def _structural_check(doc: dict) -> None:
             if key in f:
                 _check_dof_mask(f[key], f"frame {f['id']!r} {key}")
 
+    area_ids: set[str] = set()
     for a in doc.get("areas", []):
         for key in ("id", "nodes", "section"):
             if key not in a:
@@ -352,6 +369,7 @@ def _structural_check(doc: dict) -> None:
             raise SchemaError(
                 f"area {a['id']!r} references unknown section {a['section']!r}."
             )
+        area_ids.add(a["id"])
 
     for s in doc.get("sections", []):
         if s.get("kind") not in ("frame", "shell"):
@@ -368,6 +386,17 @@ def _structural_check(doc: dict) -> None:
         need_node(s["node"], "spring")
         if len(s["k"]) != 6:
             raise SchemaError(f"spring on {s['node']!r} needs 6 stiffnesses, got {s['k']!r}.")
+
+    for s in doc.get("area_springs", []):
+        for key in ("area", "k"):
+            if key not in s:
+                raise SchemaError(f"area_spring missing required field {key!r}: {s!r}")
+        if area_ids and s["area"] not in area_ids:
+            raise SchemaError(f"area_spring references unknown area {s['area']!r}.")
+        if len(s["k"]) != 3:
+            raise SchemaError(
+                f"area_spring on {s['area']!r} needs 3 stiffnesses, got {s['k']!r}."
+            )
 
     for dp in doc.get("diaphragms", []):
         for nid in dp.get("nodes", []):

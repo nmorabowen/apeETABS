@@ -91,6 +91,35 @@ def test_springs_exported(geo_etabs):
     assert doc["springs"] == [{"node": "7", "k": [100.0, 100.0, 2000.0, 0.0, 0.0, 0.0]}]
 
 
+def test_area_springs_exported(geo_etabs_subgrade):
+    model = geo_etabs_subgrade.export.structural_model()
+    springs = {s.area: s for s in model.area_springs}
+    assert set(springs) == {"F1"}
+    assert springs["F1"].k == (0.0, 0.0, 15000.0)
+    assert springs["F1"].property == "Suelo"
+    # And it round-trips through the schema (validated by structural_model()).
+    doc = model.to_dict()
+    assert doc["area_springs"] == [
+        {"area": "F1", "k": [0.0, 0.0, 15000.0], "property": "Suelo"}
+    ]
+
+
+def test_area_spring_referential_integrity_caught():
+    # An area_spring pointing at a non-existent area must fail validation.
+    doc = StructuralModel(
+        units={"length": "m", "force": "kN"},
+        nodes=[],
+        frames=[],
+    ).to_dict()
+    doc["areas"] = [
+        {"id": "F1", "nodes": ["1", "2", "3"], "section": "MAT"},
+    ]
+    doc["nodes"] = [{"id": n, "x": 0.0, "y": 0.0, "z": 0.0} for n in ("1", "2", "3")]
+    doc["area_springs"] = [{"area": "GHOST", "k": [0.0, 0.0, 1.0]}]
+    with pytest.raises(SchemaError):
+        validate_document(doc)
+
+
 def test_diaphragm_unions_joint_and_area_membership(geo_etabs):
     diaphragms = {d.name: d for d in geo_etabs.export.structural_model().diaphragms}
     assert set(diaphragms) == {"D1"}

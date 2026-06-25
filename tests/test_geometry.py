@@ -60,6 +60,18 @@ def test_springs(geo_etabs):
     assert springs["7"]["k"] == [100.0, 100.0, 2000.0, 0.0, 0.0, 0.0]
 
 
+def test_area_springs(geo_etabs_subgrade):
+    springs = {s["area"]: s for s in geo_etabs_subgrade.geometry.area_springs()}
+    assert set(springs) == {"F1"}  # only areas with an assigned property
+    assert springs["F1"]["property"] == "Suelo"
+    assert springs["F1"]["k"] == [0.0, 0.0, 15000.0]  # subgrade in local-3 (normal)
+
+
+def test_no_area_springs_when_unassigned(geo_etabs):
+    # The default fixture's areas carry no spring assignment.
+    assert geo_etabs.geometry.area_springs() == []
+
+
 def test_diaphragms(geo_etabs):
     diaphragms = geo_etabs.geometry.diaphragms()
     assert len(diaphragms) == 1

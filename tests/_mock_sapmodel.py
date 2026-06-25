@@ -89,6 +89,7 @@ class AreaSpec:
     angle: float = 0.0
     opening: bool = False
     diaphragm: str = ""
+    spring: str = ""  # assigned cPropAreaSpring property name ("" = none)
 
 
 @dataclass
@@ -141,6 +142,8 @@ class GeometrySpec:
     # section name -> {"material": str, "thickness": float}
     slab_sections: dict[str, dict] = field(default_factory=dict)
     wall_sections: dict[str, dict] = field(default_factory=dict)
+    # area-spring property name -> [U1, U2, U3] per-unit-area stiffnesses
+    area_spring_props: dict[str, list[float]] = field(default_factory=dict)
     # material name -> {"E": float, "nu": float, "rho": float}
     materials: dict[str, dict] = field(default_factory=dict)
     point_loads: dict[str, list[PointLoad]] = field(default_factory=dict)
@@ -373,6 +376,10 @@ class _AreaObj(_FrameObj):
     # GetDiaphragm(Name, DiaphragmName) -> [DiaphragmName, ret]
     def GetDiaphragm(self, name, *_args):
         return [self._geom.areas[name].diaphragm, 0]
+
+    # GetSpringAssignment(Name, SpringProp) -> [SpringProp, ret]
+    def GetSpringAssignment(self, name, *_args):
+        return [self._geom.areas[name].spring, 0]
 
     # GetLoadUniform(...) -> [NumberItems, AreaName, LoadPat, CSys, Dir, Value, ret]
     def GetLoadUniform(self, name, *_args):
@@ -705,6 +712,25 @@ class _PropArea:
         return ["", 0, 0.0, 0.0, 0.0, 0.0, 0]
 
 
+class _PropAreaSpring:
+    """Fake ``cSapModel.PropAreaSpring`` serving GetAreaSpringProp (ADR 0009)."""
+
+    def __init__(self, geom: "GeometrySpec | None" = None) -> None:
+        self._geom = geom or GeometrySpec()
+
+    # GetAreaSpringProp(Name, U1, U2, U3, NonlinearOption3, SpringOption,
+    #   SoilProfile, EndLengthRatio, Period, color, notes, iGUID)
+    #   -> [U1, U2, U3, NonlinearOption3, SpringOption, SoilProfile,
+    #       EndLengthRatio, Period, color, notes, iGUID, ret]
+    # ret != 0 for an unknown property name.
+    def GetAreaSpringProp(self, name, *_args):
+        k = self._geom.area_spring_props.get(name)
+        if k is None:
+            return [0.0, 0.0, 0.0, 0, 1, "", 0.0, 0.0, 0, "", "", 1]
+        u1, u2, u3 = (float(k[0]), float(k[1]), float(k[2]))
+        return [u1, u2, u3, 0, 1, "", 0.0, 0.0, 0, "", "", 0]
+
+
 class _LoadPatterns:
     """Fake ``cSapModel.LoadPatterns`` recording Add."""
 
@@ -780,6 +806,7 @@ class MockSapModel:
         self.PropMaterial = _PropMaterial(geom)
         self.PropFrame = _PropFrame(geom)
         self.PropArea = _PropArea(geom)
+        self.PropAreaSpring = _PropAreaSpring(geom)
         self.LoadPatterns = _LoadPatterns()
         self.RespCombo = _RespCombo()
         self.Func = _Func()
