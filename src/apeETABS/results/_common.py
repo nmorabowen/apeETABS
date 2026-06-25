@@ -282,13 +282,35 @@ def profile_arrays(
     return elev, value, stories
 
 
-def by_joint(df: pd.DataFrame, cols: list[str]) -> dict[str, tuple[float, ...]]:
+def bake_factors(
+    dim_map: dict[str, str], parent: "_SessionBase"
+) -> dict[str, float]:
+    """Per-column factor that :func:`bake_units` applied (1.0 if dimensionless).
+
+    Lets a detached snapshot recover present (ETABS) units from its baked
+    report-unit columns — see :func:`by_joint`.
+    """
+    out: dict[str, float] = {}
+    for col, dim in dim_map.items():
+        out[col] = 1.0 if dim in _DIMENSIONLESS else parent.units.factor(dim)
+    return out
+
+
+def by_joint(
+    df: pd.DataFrame,
+    cols: list[str],
+    factors: dict[str, float] | None = None,
+) -> dict[str, tuple[float, ...]]:
     """Reduce a result frame to one largest-magnitude value-vector per joint.
 
     Keyed by the ``Point`` column; for each requested column the per-DOF
     largest-magnitude value across the joint's rows is taken (so Max/Min step
     pairs collapse to the governing magnitude). Absent columns read as ``0.0``.
-    Used by the result snapshots' ``by_joint`` accessors (ADR 0009 cross-check).
+
+    ``factors`` (from :func:`bake_factors`) divides each column back to the
+    model's **present units** — the units the result was read in and the
+    ``.sm.json`` cross-check contract — undoing :func:`bake_units`' report-unit
+    scaling. Omit it to keep the (baked) report units.
     """
     if "Point" not in df.columns:
         raise ETABSError("result table has no joint identifier ('Point').")
@@ -298,8 +320,11 @@ def by_joint(df: pd.DataFrame, cols: list[str]) -> dict[str, tuple[float, ...]]:
         for col in cols:
             if col in grp.columns:
                 vals = pd.to_numeric(grp[col], errors="coerce").dropna()
-                vec.append(float(vals.loc[vals.abs().idxmax()]) if not vals.empty else 0.0)
+                val = float(vals.loc[vals.abs().idxmax()]) if not vals.empty else 0.0
             else:
-                vec.append(0.0)
+                val = 0.0
+            if factors:
+                val /= factors.get(col, 1.0)
+            vec.append(val)
         out[str(point)] = tuple(vec)
     return out

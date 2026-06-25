@@ -262,9 +262,9 @@ def test_displacements_by_joint_six_vectors():
     # Each joint -> 6-vector; rotations absent in the table -> 0.0.
     assert all(len(v) == 6 for v in by.values())
     assert all(v[3:] == (0.0, 0.0, 0.0) for v in by.values())
-    # Joint 12 Ux is the largest-magnitude across its Max(0.0105)/Min(-0.0150)
-    # rows -> -0.0150, baked by the length factor.
-    assert by["12"][0] == pytest.approx(-0.0150 * e.units.length_factor)
+    # by_joint returns PRESENT units (un-baked, the .sm.json contract): joint 12
+    # Ux is the largest-magnitude across its Max(0.0105)/Min(-0.0150) rows.
+    assert by["12"][0] == pytest.approx(-0.0150)
 
 
 # ----------------------------------------------------------------------
@@ -278,10 +278,9 @@ def test_reactions_builds_and_by_joint():
     assert r.case == "Dead"
     by = r.by_joint()
     assert set(by) == {"1", "2"}
-    # Force columns baked by the force factor; vertical reactions 40 / 60.
-    ffac = e.units.force_factor
-    assert by["1"][2] == pytest.approx(40.0 * ffac)
-    assert by["2"][2] == pytest.approx(60.0 * ffac)
+    # by_joint returns PRESENT units (un-baked): vertical reactions 40 / 60 kN.
+    assert by["1"][2] == pytest.approx(40.0)
+    assert by["2"][2] == pytest.approx(60.0)
     # Moments present (zero here) -> 6-vectors, force + moment labels set.
     assert all(len(v) == 6 for v in by.values())
     assert r.units["Fz"] and r.units["Mz"]
