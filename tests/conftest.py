@@ -183,3 +183,28 @@ def etabs(mock_app: MockETABS) -> apeETABS:
 def geo_etabs() -> apeETABS:
     """A real apeETABS bound to a mock carrying the geometry fixture (ADR 0009)."""
     return bind(make_mock(geometry=DEFAULT_GEOMETRY))
+
+
+# Shell uniform load sets (the DatabaseTables load path): the set "Entrepiso"
+# defines Dead/Live pressures; the assignment table maps area S1 to that set.
+GEO_LOADSET_TABLES = {
+    "Shell Uniform Load Sets": (
+        ["Name", "LoadPattern", "LoadValue", "GUID"],
+        [["Entrepiso", "Dead", "2.94", ""], ["Entrepiso", "Live", "1.96", ""]],
+    ),
+    "Area Load Assignments - Uniform Load Sets": (
+        ["Story", "Label", "UniqueName", "LoadSet"],
+        [["Story1", "S1", "S1", "Entrepiso"]],
+    ),
+}
+
+
+@pytest.fixture
+def geo_etabs_loadsets() -> apeETABS:
+    """apeETABS whose model applies gravity via shell uniform load sets."""
+    return bind(
+        make_mock(
+            geometry=DEFAULT_GEOMETRY,
+            tables={**DEFAULT_TABLES, **GEO_LOADSET_TABLES},
+        )
+    )

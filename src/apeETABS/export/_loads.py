@@ -12,7 +12,7 @@ area pressures. ETABS direction codes are mapped to the schema's
 
 from __future__ import annotations
 
-from ..errors import ok
+from ..errors import ETABSError, ok
 from .StructuralModel import AreaLoad, FrameLoad, LoadPattern, NodalLoad
 
 # ETABS load direction codes -> schema direction. 1-3 are local axes (kept as
@@ -22,9 +22,17 @@ _DIRECTION = {4: "X", 5: "Y", 6: "Z", 10: "gravity", 11: "gravity"}
 # GetLoadDistributed MyType: 1 = force/length, 2 = moment/length.
 _FORCE_PER_LENGTH = 1
 
+# DatabaseTables fallback for shell uniform load sets (no object-API getter).
+_LOADSET_DEF_TABLE = "Shell Uniform Load Sets"            # set -> (pattern, value)
+_LOADSET_ASSIGN_TABLE = "Area Load Assignments - Uniform Load Sets"  # area -> set
 
-def read_loads(sap, point_names, frame_names, area_names) -> list[LoadPattern]:
-    """Assemble load patterns (only patterns that carry at least one load)."""
+
+def read_loads(sap, tables, point_names, frame_names, area_names) -> list[LoadPattern]:
+    """Assemble load patterns (only patterns that carry at least one load).
+
+    Directly-assigned loads come from the object API; shell uniform-load-set
+    pressures (which have no object getter) come from the database tables.
+    """
     nodal: dict[str, list[NodalLoad]] = {}
     frame: dict[str, list[FrameLoad]] = {}
     area: dict[str, list[AreaLoad]] = {}
@@ -35,6 +43,7 @@ def read_loads(sap, point_names, frame_names, area_names) -> list[LoadPattern]:
         _read_frame_distributed(sap, str(name), frame)
     for name in area_names:
         _read_area_uniform(sap, str(name), area)
+    _read_area_loadsets(tables, area)
 
     pattern_names: dict[str, None] = {}
     for bucket in (nodal, frame, area):
@@ -108,6 +117,35 @@ def _read_area_uniform(sap, name: str, out: dict[str, list[AreaLoad]]) -> None:
                 value=float(vals[k]),
             )
         )
+
+
+def _read_area_loadsets(tables, out: dict[str, list[AreaLoad]]) -> None:
+    """Area pressures applied via *shell uniform load sets* (tables fallback).
+
+    Casa-17B-class models apply gravity through named load sets assigned to
+    slabs, not via per-object area loads. Join the set definitions
+    (set -> [(pattern, value)]) with the per-area assignments
+    (area -> set) and emit one gravity area load per (area, pattern).
+    Skipped cleanly on models that define no load sets.
+    """
+    try:
+        defs = tables.get(_LOADSET_DEF_TABLE)
+        assigns = tables.get(_LOADSET_ASSIGN_TABLE)
+    except ETABSError:
+        return  # no shell uniform load sets in this model
+    if defs.empty or assigns.empty:
+        return
+
+    set_loads: dict[str, list[tuple[str, float]]] = {}
+    for name, pat, value in zip(defs["Name"], defs["LoadPattern"], defs["LoadValue"]):
+        set_loads.setdefault(str(name), []).append((str(pat), float(value)))
+
+    for area, load_set in zip(assigns["UniqueName"], assigns["LoadSet"]):
+        for pat, value in set_loads.get(str(load_set), ()):
+            # Load sets are gravity (downward) pressures; magnitude is positive.
+            out.setdefault(pat, []).append(
+                AreaLoad(area=str(area), direction="gravity", value=value)
+            )
 
 
 def _direction(code: int):

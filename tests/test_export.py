@@ -56,6 +56,16 @@ def test_loads_assembled_per_pattern(geo_etabs):
     assert live.nodal[0].force_xyz == (5.0, 0.0, 0.0)
 
 
+def test_shell_uniform_load_sets(geo_etabs_loadsets):
+    # Gravity applied via a named load set assigned to a slab (DatabaseTables
+    # path) surfaces as gravity area loads per pattern.
+    loads = {p.name: p for p in geo_etabs_loadsets.export.structural_model().loads}
+    dead_areas = {(a.area, a.value, a.direction) for a in loads["Dead"].area}
+    assert ("S1", 2.94, "gravity") in dead_areas
+    live_areas = {(a.area, a.value, a.direction) for a in loads["Live"].area}
+    assert ("S1", 1.96, "gravity") in live_areas
+
+
 def test_diaphragm_unions_joint_and_area_membership(geo_etabs):
     diaphragms = {d.name: d for d in geo_etabs.export.structural_model().diaphragms}
     assert set(diaphragms) == {"D1"}
