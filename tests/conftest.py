@@ -250,6 +250,32 @@ def geo_etabs_multistory() -> apeETABS:
     return bind(make_mock(geometry=MULTISTORY_GEOMETRY))
 
 
+# Joint 99 connects to no member (an ETABS analysis-only joint, e.g. a
+# diaphragm CM master) yet carries a restraint, a load, and diaphragm
+# membership — all must be dropped/scrubbed from the export.
+ORPHAN_GEOMETRY = GeometrySpec(
+    points={
+        "1": (0.0, 0.0, 0.0), "2": (0.0, 0.0, 3.0),
+        "3": (4.0, 0.0, 3.0), "99": (10.0, 10.0, 3.0),
+    },
+    frames={
+        "C": FrameSpec("1", "2", "COL"),
+        "B": FrameSpec("2", "3", "COL"),
+    },
+    frame_sections={"COL": {"material": "C30", "props": {"A": 0.1, "Iy": 1e-3, "Iz": 1e-3, "J": 1e-3}}},
+    materials={"C30": {"E": 2.5e7, "nu": 0.2, "rho": 2.4}},
+    restraints={"1": [True] * 6, "99": [True] * 6},
+    point_diaphragm={"2": (3, "D1"), "3": (3, "D1"), "99": (3, "D1")},
+    point_loads={"99": [PointLoad("Dead", f=(1.0, 0.0, 0.0))]},
+)
+
+
+@pytest.fixture
+def geo_etabs_orphan() -> apeETABS:
+    """apeETABS with an analysis-only joint connected to no member."""
+    return bind(make_mock(geometry=ORPHAN_GEOMETRY))
+
+
 @pytest.fixture
 def geo_etabs_loadsets() -> apeETABS:
     """apeETABS whose model applies gravity via shell uniform load sets."""

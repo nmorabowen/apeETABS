@@ -115,6 +115,23 @@ def test_round_trip_json_identical(geo_etabs, tmp_path):
     assert reparsed == model.to_dict()
 
 
+def test_orphan_joint_dropped(geo_etabs_orphan):
+    # Joint 99 connects to no member -> dropped from the export, and every
+    # reference to it (restraint, nodal load, diaphragm membership) scrubbed.
+    model = geo_etabs_orphan.export.structural_model()
+    ids = {n.id for n in model.nodes}
+    assert ids == {"1", "2", "3"}
+    assert "99" not in ids
+    assert all(r.node != "99" for r in model.restraints)
+    assert {r.node for r in model.restraints} == {"1"}
+    # The diaphragm keeps its real members (2, 3) without the orphan.
+    diaphragms = {d.name: d for d in model.diaphragms}
+    assert all("99" not in d.nodes for d in model.diaphragms)
+    assert set(next(iter(diaphragms.values())).nodes) == {"2", "3"}
+    # The Dead pattern carried only the orphan's load -> dropped entirely.
+    assert [p.name for p in model.loads] == []
+
+
 def test_referential_integrity_caught():
     # A frame pointing at a non-existent node must fail validation.
     bad = StructuralModel(
