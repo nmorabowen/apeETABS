@@ -8,6 +8,8 @@ wall/slab kind from its (shell) section. Loads are assembled by
 
 from __future__ import annotations
 
+import warnings
+
 from . import _loads
 from .StructuralModel import (
     Area,
@@ -145,10 +147,25 @@ def _drop_orphan_nodes(nodes, frames, areas, restraints, springs, diaphragms, lo
             kept_diaphragms.append(Diaphragm(name=d.name, nodes=members, story=d.story))
 
     kept_loads = []
+    dropped_loaded: set[str] = set()
     for p in loads:
         nodal = tuple(ld for ld in p.nodal if ld.node in used)
+        for ld in p.nodal:
+            if ld.node not in used and (any(ld.force_xyz) or any(ld.moment_xyz)):
+                dropped_loaded.add(ld.node)
         if nodal or p.frame or p.area:
             kept_loads.append(LoadPattern(name=p.name, nodal=nodal, frame=p.frame, area=p.area))
+
+    if dropped_loaded:
+        # A free joint (no element to carry it) that nonetheless carries a real
+        # nodal force/moment: its load is silently lost downstream. CM-master
+        # orphans carry no load and don't trip this — only genuine data loss.
+        warnings.warn(
+            f"export dropped {len(dropped_loaded)} loaded free joint(s) "
+            f"{sorted(dropped_loaded)}: connected to no frame/area, so their "
+            f"nodal loads are not represented in the exported model.",
+            stacklevel=2,
+        )
 
     return nodes, restraints, springs, kept_diaphragms, kept_loads
 
