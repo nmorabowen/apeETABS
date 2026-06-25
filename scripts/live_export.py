@@ -53,7 +53,7 @@ def full_export(e, out: Path):
         print(
             f"\nFULL EXPORT: PASS -> {out.name}\n"
             f"  sections={len(model.sections)} materials={len(model.materials)} "
-            f"restraints={len(model.restraints)} "
+            f"restraints={len(model.restraints)} springs={len(model.springs)} "
             f"diaphragms={len(model.diaphragms)} (nodes={dia_nodes}) "
             f"loads={len(model.loads)}"
         )

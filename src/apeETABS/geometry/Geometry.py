@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import _areas, _diaphragms, _frames, _points, _props, _restraints
+from . import _areas, _diaphragms, _frames, _points, _props, _restraints, _springs
 
 if TYPE_CHECKING:
     from .._session import _SessionBase
@@ -50,6 +50,10 @@ class Geometry:
     def restraints(self) -> list[dict]:
         """Restrained joints: ``[{node, dofs}]`` (6-int 0/1 masks)."""
         return _restraints.read_restraints(self._sap, self._point_names())
+
+    def springs(self) -> list[dict]:
+        """Sprung joints: ``[{node, k}]`` (6 diagonal support stiffnesses)."""
+        return _springs.read_springs(self._sap, self._point_names())
 
     def diaphragms(self) -> list[dict]:
         """Named diaphragms: ``[{name, nodes}]`` (joint + area-level membership)."""

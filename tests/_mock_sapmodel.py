@@ -131,6 +131,7 @@ class GeometrySpec:
 
     points: dict[str, tuple[float, float, float]] = field(default_factory=dict)
     restraints: dict[str, list[bool]] = field(default_factory=dict)
+    springs: dict[str, list[float]] = field(default_factory=dict)  # node -> 6 K
     # point name -> (eDiaphragmOption code, diaphragm name)
     point_diaphragm: dict[str, tuple[int, str]] = field(default_factory=dict)
     frames: dict[str, FrameSpec] = field(default_factory=dict)
@@ -411,6 +412,10 @@ class _PointObj:
     # GetRestraint(Name, Value) -> [Value, ret]
     def GetRestraint(self, name, *_args):
         return [list(self._geom.restraints.get(name, [False] * 6)), 0]
+
+    # GetSpring(Name, K) -> [K, ret]  (6 diagonal stiffnesses)
+    def GetSpring(self, name, *_args):
+        return [list(self._geom.springs.get(name, [0.0] * 6)), 0]
 
     # GetDiaphragm(Name, DiaphragmOption, DiaphragmName)
     #   -> [DiaphragmOption, DiaphragmName, ret]

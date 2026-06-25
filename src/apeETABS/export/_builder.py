@@ -17,6 +17,7 @@ from .StructuralModel import (
     Node,
     Restraint,
     Section,
+    Spring,
     StructuralModel,
 )
 
@@ -83,6 +84,7 @@ def build_structural_model(e) -> StructuralModel:
     restraints = [
         Restraint(node=r["node"], dofs=tuple(r["dofs"])) for r in geo.restraints()
     ]
+    springs = [Spring(node=s["node"], k=tuple(s["k"])) for s in geo.springs()]
     diaphragms = [
         Diaphragm(name=d["name"], nodes=tuple(d["nodes"])) for d in geo.diaphragms()
     ]
@@ -101,6 +103,7 @@ def build_structural_model(e) -> StructuralModel:
         sections=sections,
         materials=materials,
         restraints=restraints,
+        springs=springs,
         diaphragms=diaphragms,
         loads=loads,
     )

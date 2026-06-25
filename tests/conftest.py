@@ -105,6 +105,8 @@ DEFAULT_GEOMETRY = GeometrySpec(
         "7": (4.0, 4.0, 3.0), "8": (0.0, 4.0, 3.0),
     },
     restraints={n: [True] * 6 for n in ("1", "2", "3", "4")},
+    # A soil-type support spring on a free joint (translational only).
+    springs={"7": [100.0, 100.0, 2000.0, 0.0, 0.0, 0.0]},
     # Joints 5,6 carry the diaphragm at the joint level (2 = FromShellObject);
     # joints 7,8 do NOT — they reach D1 only via the slab's area-level
     # assignment (AreaObj.GetDiaphragm on S1), exercising both capture paths.
