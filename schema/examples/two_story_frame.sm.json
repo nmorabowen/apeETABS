@@ -1,0 +1,53 @@
+{
+  "schema_version": "0.1",
+  "units": { "length": "m", "force": "kN" },
+  "source": { "tool": "ETABS", "model": "two_story_frame.EDB", "exported": "fixture" },
+
+  "nodes": [
+    { "id": "1", "x": 0.0, "y": 0.0, "z": 0.0, "story": "Base" },
+    { "id": "2", "x": 6.0, "y": 0.0, "z": 0.0, "story": "Base" },
+    { "id": "3", "x": 0.0, "y": 0.0, "z": 3.5, "story": "Story1" },
+    { "id": "4", "x": 6.0, "y": 0.0, "z": 3.5, "story": "Story1" },
+    { "id": "5", "x": 0.0, "y": 0.0, "z": 7.0, "story": "Story2" },
+    { "id": "6", "x": 6.0, "y": 0.0, "z": 7.0, "story": "Story2" }
+  ],
+
+  "frames": [
+    { "id": "C1", "i": "1", "j": "3", "section": "W360", "kind": "column", "rotation": 0.0 },
+    { "id": "C2", "i": "2", "j": "4", "section": "W360", "kind": "column", "rotation": 0.0 },
+    { "id": "C3", "i": "3", "j": "5", "section": "W360", "kind": "column", "rotation": 0.0 },
+    { "id": "C4", "i": "4", "j": "6", "section": "W360", "kind": "column", "rotation": 0.0 },
+    { "id": "B1", "i": "3", "j": "4", "section": "W460", "kind": "beam", "rotation": 0.0 },
+    { "id": "B2", "i": "5", "j": "6", "section": "W460", "kind": "beam", "rotation": 0.0 }
+  ],
+
+  "sections": [
+    { "name": "W360", "kind": "frame", "material": "A992",
+      "props": { "A": 0.0114, "Iy": 1.99e-5, "Iz": 2.02e-4, "J": 8.16e-7 } },
+    { "name": "W460", "kind": "frame", "material": "A992",
+      "props": { "A": 0.0152, "Iy": 3.34e-5, "Iz": 5.54e-4, "J": 1.14e-6 } }
+  ],
+
+  "materials": [
+    { "name": "A992", "E": 2.0e8, "nu": 0.3, "rho": 7.85, "fy": 3.45e5 }
+  ],
+
+  "restraints": [
+    { "node": "1", "dofs": [1, 1, 1, 1, 1, 1] },
+    { "node": "2", "dofs": [1, 1, 1, 1, 1, 1] }
+  ],
+
+  "loads": {
+    "Dead": {
+      "frame": [
+        { "frame": "B1", "direction": "Z", "value": -25.0 },
+        { "frame": "B2", "direction": "Z", "value": -25.0 }
+      ]
+    },
+    "Live": {
+      "nodal": [
+        { "node": "5", "force_xyz": [50.0, 0.0, 0.0] }
+      ]
+    }
+  }
+}

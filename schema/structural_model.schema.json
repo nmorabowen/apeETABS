@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nmorabowen/apeETABS/schema/structural_model.schema.json",
+  "title": "StructuralModel",
+  "description": "Neutral interchange document between apeETABS (exporter) and apeGmsh (importer). Analytical shells + beams target. See ADR 0009.",
+  "type": "object",
+  "required": ["schema_version", "units", "nodes", "frames"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Must match schema/VERSION on both ends; mismatch is a coordinated breaking change.",
+      "const": "0.1"
+    },
+    "units": { "$ref": "#/$defs/units" },
+    "source": { "$ref": "#/$defs/source" },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "frames": { "type": "array", "items": { "$ref": "#/$defs/frame" } },
+    "areas": { "type": "array", "items": { "$ref": "#/$defs/area" } },
+    "sections": { "type": "array", "items": { "$ref": "#/$defs/section" } },
+    "materials": { "type": "array", "items": { "$ref": "#/$defs/material" } },
+    "restraints": { "type": "array", "items": { "$ref": "#/$defs/restraint" } },
+    "diaphragms": { "type": "array", "items": { "$ref": "#/$defs/diaphragm" } },
+    "loads": {
+      "type": "object",
+      "description": "Keyed by load-pattern name.",
+      "additionalProperties": { "$ref": "#/$defs/loadPattern" }
+    }
+  },
+
+  "$defs": {
+    "units": {
+      "type": "object",
+      "description": "Pinned unit contract. The exporter emits in this system; the importer trusts it. No implicit conversion across the seam (ADR 0009, Risk U).",
+      "required": ["length", "force"],
+      "additionalProperties": false,
+      "properties": {
+        "length": { "type": "string", "examples": ["m", "mm", "ft", "in"] },
+        "force": { "type": "string", "examples": ["kN", "N", "kip", "lb"] }
+      }
+    },
+
+    "source": {
+      "type": "object",
+      "description": "Provenance; informational only.",
+      "additionalProperties": true,
+      "properties": {
+        "tool": { "type": "string" },
+        "model": { "type": "string" },
+        "exported": { "type": "string" }
+      }
+    },
+
+    "dofMask": {
+      "type": "array",
+      "description": "Six DOF flags [Ux,Uy,Uz,Rx,Ry,Rz], 1 = restrained/released.",
+      "items": { "type": "integer", "enum": [0, 1] },
+      "minItems": 6,
+      "maxItems": 6
+    },
+
+    "node": {
+      "type": "object",
+      "required": ["id", "x", "y", "z"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "ETABS point name, verbatim (traceability key)." },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
+        "story": { "type": "string" }
+      }
+    },
+
+    "frame": {
+      "type": "object",
+      "required": ["id", "i", "j", "section"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "i": { "type": "string", "description": "Start node id." },
+        "j": { "type": "string", "description": "End node id." },
+        "section": { "type": "string" },
+        "material": { "type": "string", "description": "Optional; usually derived from the section." },
+        "kind": { "type": "string", "enum": ["beam", "column", "brace"] },
+        "rotation": { "type": "number", "description": "Local-2 axis rotation, degrees (ETABS frame angle)." },
+        "releases_i": { "$ref": "#/$defs/dofMask" },
+        "releases_j": { "$ref": "#/$defs/dofMask" }
+      }
+    },
+
+    "area": {
+      "type": "object",
+      "required": ["id", "nodes", "section"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "nodes": {
+          "type": "array",
+          "description": "Ordered boundary node ids (closed loop, not repeating the first).",
+          "items": { "type": "string" },
+          "minItems": 3
+        },
+        "section": { "type": "string" },
+        "material": { "type": "string" },
+        "thickness": { "type": "number", "description": "Optional; usually derived from the section." },
+        "kind": { "type": "string", "enum": ["wall", "slab", "shell"] },
+        "local_axis_deg": { "type": "number" },
+        "openings": {
+          "type": "array",
+          "description": "Each opening is an ordered loop of node ids; becomes a hole in the surface.",
+          "items": { "type": "array", "items": { "type": "string" }, "minItems": 3 }
+        }
+      }
+    },
+
+    "section": {
+      "type": "object",
+      "required": ["name", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string", "enum": ["frame", "shell"] },
+        "material": { "type": "string" },
+        "thickness": { "type": "number", "description": "Shell sections." },
+        "props": {
+          "type": "object",
+          "description": "Frame sectional properties (A, Iy, Iz, J, ...). Free-form property bag.",
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    },
+
+    "material": {
+      "type": "object",
+      "required": ["name", "E", "nu"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "E": { "type": "number" },
+        "nu": { "type": "number" },
+        "rho": { "type": "number", "description": "Mass density (units per the units block)." },
+        "fy": { "type": "number" }
+      }
+    },
+
+    "restraint": {
+      "type": "object",
+      "required": ["node", "dofs"],
+      "additionalProperties": false,
+      "properties": {
+        "node": { "type": "string" },
+        "dofs": { "$ref": "#/$defs/dofMask" }
+      }
+    },
+
+    "diaphragm": {
+      "type": "object",
+      "required": ["name", "nodes"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "story": { "type": "string" },
+        "nodes": { "type": "array", "items": { "type": "string" }, "minItems": 2 }
+      }
+    },
+
+    "loadPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nodal": { "type": "array", "items": { "$ref": "#/$defs/nodalLoad" } },
+        "frame": { "type": "array", "items": { "$ref": "#/$defs/frameLoad" } },
+        "area": { "type": "array", "items": { "$ref": "#/$defs/areaLoad" } }
+      }
+    },
+
+    "nodalLoad": {
+      "type": "object",
+      "required": ["node"],
+      "additionalProperties": false,
+      "properties": {
+        "node": { "type": "string" },
+        "force_xyz": { "$ref": "#/$defs/vec3" },
+        "moment_xyz": { "$ref": "#/$defs/vec3" }
+      }
+    },
+
+    "frameLoad": {
+      "type": "object",
+      "required": ["frame", "direction", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "frame": { "type": "string" },
+        "direction": {
+          "description": "Global axis (1|2|3) or label.",
+          "oneOf": [
+            { "type": "integer", "enum": [1, 2, 3] },
+            { "type": "string", "enum": ["X", "Y", "Z", "gravity"] }
+          ]
+        },
+        "value": { "type": "number", "description": "Uniform distributed magnitude (force/length)." }
+      }
+    },
+
+    "areaLoad": {
+      "type": "object",
+      "required": ["area", "direction", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "area": { "type": "string" },
+        "direction": {
+          "oneOf": [
+            { "type": "integer", "enum": [1, 2, 3] },
+            { "type": "string", "enum": ["X", "Y", "Z", "gravity", "normal"] }
+          ]
+        },
+        "value": { "type": "number", "description": "Uniform pressure (force/area)." }
+      }
+    },
+
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  }
+}
