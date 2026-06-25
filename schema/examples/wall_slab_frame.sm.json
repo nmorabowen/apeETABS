@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.1",
+  "units": { "length": "m", "force": "kN" },
+  "source": { "tool": "ETABS", "model": "wall_slab_frame.EDB", "exported": "fixture" },
+
+  "nodes": [
+    { "id": "1", "x": 0.0, "y": 0.0, "z": 0.0, "story": "Base" },
+    { "id": "2", "x": 4.0, "y": 0.0, "z": 0.0, "story": "Base" },
+    { "id": "3", "x": 4.0, "y": 4.0, "z": 0.0, "story": "Base" },
+    { "id": "4", "x": 0.0, "y": 4.0, "z": 0.0, "story": "Base" },
+    { "id": "5", "x": 0.0, "y": 0.0, "z": 3.0, "story": "Story1" },
+    { "id": "6", "x": 4.0, "y": 0.0, "z": 3.0, "story": "Story1" },
+    { "id": "7", "x": 4.0, "y": 4.0, "z": 3.0, "story": "Story1" },
+    { "id": "8", "x": 0.0, "y": 4.0, "z": 3.0, "story": "Story1" }
+  ],
+
+  "frames": [
+    { "id": "C1", "i": "1", "j": "5", "section": "COL400", "kind": "column" },
+    { "id": "C2", "i": "2", "j": "6", "section": "COL400", "kind": "column" },
+    { "id": "C3", "i": "3", "j": "7", "section": "COL400", "kind": "column" },
+    { "id": "C4", "i": "4", "j": "8", "section": "COL400", "kind": "column" },
+    { "id": "B1", "i": "6", "j": "7", "section": "BEAM300", "kind": "beam" },
+    { "id": "B2", "i": "7", "j": "8", "section": "BEAM300", "kind": "beam" },
+    { "id": "B3", "i": "8", "j": "5", "section": "BEAM300", "kind": "beam" }
+  ],
+
+  "areas": [
+    { "id": "S1", "nodes": ["5", "6", "7", "8"], "section": "SLAB200", "kind": "slab" },
+    { "id": "W1", "nodes": ["1", "2", "6", "5"], "section": "WALL250", "kind": "wall" }
+  ],
+
+  "sections": [
+    { "name": "COL400", "kind": "frame", "material": "C30",
+      "props": { "A": 0.16, "Iy": 2.133e-3, "Iz": 2.133e-3, "J": 3.604e-3 } },
+    { "name": "BEAM300", "kind": "frame", "material": "C30",
+      "props": { "A": 0.12, "Iy": 9.0e-4, "Iz": 1.6e-3, "J": 1.78e-3 } },
+    { "name": "SLAB200", "kind": "shell", "material": "C30", "thickness": 0.20 },
+    { "name": "WALL250", "kind": "shell", "material": "C30", "thickness": 0.25 }
+  ],
+
+  "materials": [
+    { "name": "C30", "E": 2.5e7, "nu": 0.2, "rho": 2.4 }
+  ],
+
+  "restraints": [
+    { "node": "1", "dofs": [1, 1, 1, 1, 1, 1] },
+    { "node": "2", "dofs": [1, 1, 1, 1, 1, 1] },
+    { "node": "3", "dofs": [1, 1, 1, 1, 1, 1] },
+    { "node": "4", "dofs": [1, 1, 1, 1, 1, 1] }
+  ],
+
+  "diaphragms": [
+    { "name": "D1", "story": "Story1", "nodes": ["5", "6", "7", "8"] }
+  ],
+
+  "loads": {
+    "Dead": {
+      "area": [
+        { "area": "S1", "direction": "Z", "value": -5.0 }
+      ]
+    }
+  }
+}
