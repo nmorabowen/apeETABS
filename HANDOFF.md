@@ -7,26 +7,80 @@ Snapshot for whoever (human or agent) picks this up next. Pairs with
 ## What this is
 
 A human-centric Python wrapper over the **CSI ETABS Open API (OAPI)**, in the
-apeGmsh house style (session facade + composites). **v1 = parse + plot**
-(complete, tested); editing / creation / agentic are **scaffolded**.
+apeGmsh house style (session facade + composites). **Parse + plot + seismic
+irregularities** are complete and tested; the **ETABS→apeGmsh interop**
+(`e.geometry` extractor + `e.export`, ADR 0009) is complete and live-validated;
+editing / creation / standards / agentic are **scaffolded**.
 
 - Repo: https://github.com/nmorabowen/apeETABS (public, `main`)
 - Replaces an old class (reference only): `C:\Users\nmb\Documents\Github\APE_Public\ETABS_to_python`
 
 ## Status at handoff
 
-- All planned phases **P0–P8 complete**, each adversarially reviewed before commit.
-- **164 tests pass, ruff clean.** No live ETABS needed (mock-backed).
-- Pushed to GitHub `main`; full reviewed commit history preserved.
+- Planned phases **P0–P9 complete** + the **ADR 0009 ETABS→apeGmsh interop**
+  (extractor + exporter) built and **validated end-to-end on real models**.
+- **250 tests pass, ruff clean.** Automated tests are mock-backed (no live ETABS);
+  the interop has additionally been live-validated against the reference `.EDB`s.
+- Pushed to GitHub `main`; PRs #4–#8 merged.
 
 | Area | State |
 |---|---|
 | Connection, units (+baseUnits bridge), tables, stories | complete |
 | Results: Displacements, StoryDrifts, StoryForces, WallForces, Profile | complete |
 | Plotting: drift/displacement/story_shear/story_forces/wall_forces + style | complete |
+| Seismic irregularities (CM/CR, soft story, torsion, mass) | complete |
+| **ADR 0009 `e.geometry`** (points/frames/areas/restraints/springs/diaphragms/sections/materials) | **complete + live-validated** |
+| **ADR 0009 `e.export`** (`StructuralModel` → `.sm.json`, schema-validated) | **complete + live-validated** |
 | Editing: lock guard + `e.edit`/`e.assign` | **scaffold** (rename/delete/restraint impl; rest stubs) |
 | Creation: `e.define`/`e.create`/`e.new` | **scaffold** (material/frame_rect/load_pattern/point/frame impl; rest stubs) |
+| Standards presets `e.standards` (ADR 0008) | **scaffold** (define/assign primitives done; per-code logic pending) |
 | Agentic: spec pipeline, AgentPolicy, ReportSpec | **scaffold** (read tier real; Model/EditSpec stubs) |
+
+## ADR 0009 — ETABS → apeGmsh interop (the latest work)
+
+The big new capability: extract a real ETABS model into a neutral
+`StructuralModel` JSON document that apeGmsh re-meshes into a **solving**
+OpenSees model. See [`architecture/decisions/0009-*.md`](architecture/decisions/)
+and the schema at `schema/structural_model.schema.json` (mirrored read-side in
+the apeGmsh repo).
+
+**Built (all merged to `main`):**
+- `e.geometry` — read-only object-API enumerator: `points`, `frames`, `areas`,
+  `restraints`, `springs`, `diaphragms`, `sections`, `materials`. Best-effort
+  property reads (auto-select / nonprismatic sections, uniaxial materials never
+  abort the export).
+- `e.export.structural_model(path)` — assembles + validates (structural check +
+  full JSON Schema when `jsonschema` present) + writes `.sm.json`.
+- Diaphragms captured at the **area level** (`AreaObj.GetDiaphragm` ∪ joint
+  level) and **split per floor by elevation** (ETABS reuses one name across
+  stories).
+- Loads: object-API nodal/frame/area **plus** the **DatabaseTables fallback**
+  for *shell uniform load sets* (`Shell Uniform Load Sets` ⋈
+  `Area Load Assignments - Uniform Load Sets`), emitted as `gravity` area loads.
+- Export drops **analysis-only orphan joints** (e.g. diaphragm CM masters) that
+  would become singular free nodes downstream.
+
+**End-to-end gate (the real validation):** `scripts/live_export.py "<model>.EDB"`
+round-trips a model and checks `e.geometry` counts against ETABS' own `Count()`.
+The full apeGmsh pipeline (`StructuralModel.from_json` → `import_structural_model`
+→ mesh → `build_opensees`) then meshes Casa 17B (3223 nodes) into an OpenSees
+deck that **solves a static gravity step to convergence** (UmfPack, ~14 mm slab
+sag, loads consistent-nodal with **0 `eleLoad`**). Counts pass on all five
+reference models (up to 2059 joints).
+
+**Open follow-ups (ADR 0009):**
+- **Area (subgrade) springs** — the reference foundation models support the base
+  via *area springs* (`AreaObj.GetSpringAssignment` → a `cPropAreaSpring`
+  property like `"Suelo"`), NOT rigid restraints or point springs. Needs a new
+  schema concept + a Winkler-style (tributary-area → nodal spring) application
+  on the apeGmsh side. Point springs (`GetSpring`) are already done.
+- **Solve cross-check** — validate apeGmsh reactions/displacements against
+  ETABS' own analysis output within tolerance.
+- `_drop_orphan_nodes` silently scrubs orphan-joint restraints/loads; add a
+  `log`/warn if a genuinely loaded free joint is ever dropped.
+- Loads applied via apeGmsh `g.loads` (consistent nodal), never OpenSees
+  `eleLoad` — a deliberate decision (element loads are finnicky); the importer
+  already honors it (`target_form="nodal"` default).
 
 ## Environment (critical)
 
@@ -42,8 +96,17 @@ apeGmsh house style (session facade + composites). **v1 = parse + plot**
 # from repo root, with the venv python:
 LADRUNO_OPENSEES_QUIET=1 <venvpy> -m pytest -q
 LADRUNO_OPENSEES_QUIET=1 <venvpy> -m ruff check src tests
-LADRUNO_OPENSEES_QUIET=1 <venvpy> scripts/live_smoke.py   # needs ETABS + a model open
+LADRUNO_OPENSEES_QUIET=1 <venvpy> scripts/live_smoke.py    # results/plot — needs ETABS open
+LADRUNO_OPENSEES_QUIET=1 <venvpy> scripts/live_export.py "reference models/Casa 17B RevA.EDB"
+#   ^ ADR 0009 gate: launches ETABS, count-checks vs Count(), writes <model>.sm.json
 ```
+
+The apeGmsh side of the round-trip lives in the **apeGmsh repo**
+(`src/apeGmsh/interop/etabs_import.py`): `StructuralModel.from_json` →
+`import_structural_model(g, model)` → mesh (`generate(dim=2)`) →
+`build_opensees(fem, model, result)` → `ops.tcl(...)`/`ops.py(...)`. Both repos
+own their own parse layer; the **schema is the contract** (`schema_version`
+mismatch is loud).
 
 ## Architecture & conventions (enforce these)
 
