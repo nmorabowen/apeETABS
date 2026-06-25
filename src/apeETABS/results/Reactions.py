@@ -12,7 +12,7 @@ apeGmsh solver's ``solve_and_extract`` output.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -63,6 +63,7 @@ class Reactions:
     df: pd.DataFrame
     case: str
     units: dict[str, str]
+    factors: dict[str, float] = field(default_factory=dict)
 
     @classmethod
     def from_table(
@@ -83,16 +84,18 @@ class Reactions:
         df = _common.map_columns(raw, _COLUMN_MAP, _REQUIRED, table=_TABLE)
         df, resolved = _common.select_case(df, name, table=_TABLE)
         labels = _common.bake_units(df, _DIM_MAP, parent)
-        return cls(df=df, case=resolved, units=labels)
+        factors = _common.bake_factors(_DIM_MAP, parent)
+        return cls(df=df, case=resolved, units=labels, factors=factors)
 
     def by_joint(self) -> dict[str, tuple[float, float, float, float, float, float]]:
-        """``{joint_id: (Fx,Fy,Fz,Mx,My,Mz)}`` for the cross-check.
+        """``{joint_id: (Fx,Fy,Fz,Mx,My,Mz)}`` in **present units** (cross-check).
 
         One 6-vector per joint; when several rows share a joint (e.g. Max/Min
         steps) the per-DOF largest-magnitude value is taken. Missing columns
-        read as zero.
+        read as zero. Values are un-baked back to the model's present units (the
+        ``.sm.json`` contract), not the report units of :attr:`df`.
         """
-        return _common.by_joint(self.df, _VALUE_COLS)
+        return _common.by_joint(self.df, _VALUE_COLS, self.factors)
 
 
 def _resolve_selector(case: str | None, combo: str | None) -> str:
