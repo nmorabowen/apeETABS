@@ -309,7 +309,6 @@ def _structural_check(doc: dict) -> None:
         node_ids.add(n["id"])
 
     section_names = {s["name"] for s in doc.get("sections", [])}
-    material_names = {m["name"] for m in doc.get("materials", [])}
 
     def need_node(nid: str, where: str) -> None:
         if nid not in node_ids:
@@ -345,11 +344,9 @@ def _structural_check(doc: dict) -> None:
     for s in doc.get("sections", []):
         if s.get("kind") not in ("frame", "shell"):
             raise SchemaError(f"section {s.get('name')!r} kind must be frame|shell.")
-        mat = s.get("material")
-        if mat and material_names and mat not in material_names:
-            raise SchemaError(
-                f"section {s['name']!r} references unknown material {mat!r}."
-            )
+        # Note: section -> material refs are intentionally NOT enforced — a
+        # referenced material may be unreadable (non-isotropic/uniaxial exotic)
+        # and legitimately dropped from the materials array.
 
     for r in doc.get("restraints", []):
         need_node(r["node"], "restraint")

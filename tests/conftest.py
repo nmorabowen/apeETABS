@@ -199,6 +199,30 @@ GEO_LOADSET_TABLES = {
 }
 
 
+# Exotic properties that the basic getters can't fully read (real-model
+# variety): an auto-select frame section (no material/props), a uniaxial
+# rebar material (not isotropic), and a fully-unreadable material.
+EXOTIC_GEOMETRY = GeometrySpec(
+    points={"1": (0.0, 0.0, 0.0), "2": (0.0, 0.0, 3.0)},
+    frames={
+        "X": FrameSpec("1", "2", "AUTO"),   # AUTO absent below -> getters ret=1
+        "Y": FrameSpec("1", "2", "COLR"),
+        "Z": FrameSpec("1", "2", "COLZ"),
+    },
+    frame_sections={
+        "COLR": {"material": "Rebar", "props": {"A": 0.1}},
+        "COLZ": {"material": "Ghost", "props": {"A": 0.1}},
+    },
+    materials={"Rebar": {"E": 2.0e8, "nu": 0.0, "uniaxial": True}},  # Ghost absent
+)
+
+
+@pytest.fixture
+def geo_etabs_exotic() -> apeETABS:
+    """apeETABS whose model has sections/materials the basic getters can't read."""
+    return bind(make_mock(geometry=EXOTIC_GEOMETRY))
+
+
 @pytest.fixture
 def geo_etabs_loadsets() -> apeETABS:
     """apeETABS whose model applies gravity via shell uniform load sets."""

@@ -75,12 +75,17 @@ class Geometry:
         return sections
 
     def materials(self) -> list[dict]:
-        """Materials referenced by the sections: ``[{name, E, nu, rho}]``."""
+        """Materials referenced by the sections: ``[{name, E, nu, rho}]``.
+
+        Materials whose mechanics can't be read (some non-isotropic exotics)
+        are dropped rather than failing the enumeration.
+        """
         sap = self._sap
         names = _unique(
             s["material"] for s in self.sections() if s.get("material")
         )
-        return [_props.read_material(sap, name) for name in names]
+        materials = (_props.read_material(sap, name) for name in names)
+        return [m for m in materials if m is not None]
 
     # -- single-record getters (used by the builder / ad-hoc queries) ---
 
