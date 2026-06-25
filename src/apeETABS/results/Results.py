@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from .CentersMassRigidity import CentersMassRigidity
 from .Displacements import Displacements
+from .Reactions import Reactions
 from .StoryDrifts import StoryDrifts
 from .StoryForces import StoryForces
 from .StoryStiffness import StoryStiffness
@@ -42,6 +43,19 @@ class Results:
             >>> d.peak(direction="X")
         """
         return Displacements.from_table(self._parent, case=case, combo=combo)
+
+    def reactions(
+        self, *, case: str | None = None, combo: str | None = None
+    ) -> Reactions:
+        """Joint reactions for exactly one ``case=`` or ``combo=``.
+
+        The ETABS side of the ADR 0009 solve cross-check.
+
+        Example:
+            >>> r = e.results.reactions(case="Dead")
+            >>> r.by_joint()["12"]            # (Fx,Fy,Fz,Mx,My,Mz)
+        """
+        return Reactions.from_table(self._parent, case=case, combo=combo)
 
     def story_drifts(
         self, *, case: str | None = None, combo: str | None = None

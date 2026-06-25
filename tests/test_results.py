@@ -15,6 +15,7 @@ from apeETABS.errors import ETABSError
 from apeETABS.results import (
     Displacements,
     Profile,
+    Reactions,
     Results,
     StoryDrifts,
     StoryForces,
@@ -81,12 +82,34 @@ def _displacement_tables() -> dict:
     }
 
 
+def _reaction_tables() -> dict:
+    """Joint Reactions for two supports under a 'Dead' case (FX..MZ)."""
+    return {
+        "Joint Reactions": (
+            ["Story", "UniqueName", "OutputCase", "StepType",
+             "FX", "FY", "FZ", "MX", "MY", "MZ"],
+            [
+                ["Base", "1", "Dead", "Max", "1.0", "2.0", "40.0", "0.0", "0.0", "0.0"],
+                ["Base", "2", "Dead", "Max", "-1.0", "2.0", "60.0", "0.0", "0.0", "0.0"],
+            ],
+        ),
+        "Tower and Base Story Definitions": (
+            ["Tower", "BSName", "BSElev"],
+            [["T1", "Base", "0.0"]],
+        ),
+    }
+
+
 def _drift_session():
     return bind(make_mock(tables=_drift_tables()))
 
 
 def _disp_session():
     return bind(make_mock(tables=_displacement_tables()))
+
+
+def _reaction_session():
+    return bind(make_mock(tables=_reaction_tables()))
 
 
 # ----------------------------------------------------------------------
@@ -229,6 +252,45 @@ def test_displacements_unknown_label_raises():
     d = Results(_disp_session()).displacements(case="EQX")
     with pytest.raises(ETABSError):
         d.profile(label="9999", direction="X")
+
+
+def test_displacements_by_joint_six_vectors():
+    e = _disp_session()
+    d = Results(e).displacements(case="EQX")
+    by = d.by_joint()
+    assert set(by) == {"12", "8", "4"}
+    # Each joint -> 6-vector; rotations absent in the table -> 0.0.
+    assert all(len(v) == 6 for v in by.values())
+    assert all(v[3:] == (0.0, 0.0, 0.0) for v in by.values())
+    # Joint 12 Ux is the largest-magnitude across its Max(0.0105)/Min(-0.0150)
+    # rows -> -0.0150, baked by the length factor.
+    assert by["12"][0] == pytest.approx(-0.0150 * e.units.length_factor)
+
+
+# ----------------------------------------------------------------------
+# Reactions (ADR 0009 solve cross-check)
+# ----------------------------------------------------------------------
+
+def test_reactions_builds_and_by_joint():
+    e = _reaction_session()
+    r = Results(e).reactions(case="Dead")
+    assert isinstance(r, Reactions)
+    assert r.case == "Dead"
+    by = r.by_joint()
+    assert set(by) == {"1", "2"}
+    # Force columns baked by the force factor; vertical reactions 40 / 60.
+    ffac = e.units.force_factor
+    assert by["1"][2] == pytest.approx(40.0 * ffac)
+    assert by["2"][2] == pytest.approx(60.0 * ffac)
+    # Moments present (zero here) -> 6-vectors, force + moment labels set.
+    assert all(len(v) == 6 for v in by.values())
+    assert r.units["Fz"] and r.units["Mz"]
+
+
+def test_reactions_requires_one_selector():
+    r = Results(_reaction_session())
+    with pytest.raises(ETABSError):
+        r.reactions()  # neither case nor combo
 
 
 # ----------------------------------------------------------------------
