@@ -69,11 +69,16 @@ sag, loads consistent-nodal with **0 `eleLoad`**). Counts pass on all five
 reference models (up to 2059 joints).
 
 **Open follow-ups (ADR 0009):**
-- **Area (subgrade) springs** — the reference foundation models support the base
-  via *area springs* (`AreaObj.GetSpringAssignment` → a `cPropAreaSpring`
-  property like `"Suelo"`), NOT rigid restraints or point springs. Needs a new
-  schema concept + a Winkler-style (tributary-area → nodal spring) application
-  on the apeGmsh side. Point springs (`GetSpring`) are already done.
+- **Area (subgrade) springs — extraction DONE** (`e.geometry.area_springs()` →
+  `AreaObj.GetSpringAssignment` → `cPropAreaSpring.GetAreaSpringProp`, emitted as
+  the schema's `area_springs` array: `{area, property, k:[U1,U2,U3]}` per-unit-area,
+  U3 = surface-normal subgrade). Best-effort like the prop reads; area-ref
+  integrity validated. **Still TODO — the apeGmsh-side consumption**: a
+  Winkler application (tributary-area → nodal spring) in `interop/etabs_import.py`.
+  The apeGmsh reader currently ignores the new key (selective `d.get`, no strict
+  schema), so foundation models export cleanly but the base is still unsupported
+  downstream until the Winkler step lands. Point springs (`GetSpring`) already
+  apply on both sides.
 - **Solve cross-check** — validate apeGmsh reactions/displacements against
   ETABS' own analysis output within tolerance.
 - `_drop_orphan_nodes` silently scrubs orphan-joint restraints/loads; add a

@@ -21,6 +21,7 @@
     "materials": { "type": "array", "items": { "$ref": "#/$defs/material" } },
     "restraints": { "type": "array", "items": { "$ref": "#/$defs/restraint" } },
     "springs": { "type": "array", "items": { "$ref": "#/$defs/spring" } },
+    "area_springs": { "type": "array", "items": { "$ref": "#/$defs/areaSpring" } },
     "diaphragms": { "type": "array", "items": { "$ref": "#/$defs/diaphragm" } },
     "loads": {
       "type": "object",
@@ -168,6 +169,24 @@
           "items": { "type": "number" },
           "minItems": 6,
           "maxItems": 6
+        }
+      }
+    },
+
+    "areaSpring": {
+      "type": "object",
+      "description": "Distributed (subgrade / Winkler) support assigned to an area: stiffness per unit area in the area local axes. The real base-support mechanism in foundation models (slab-on-soil), as opposed to rigid restraints or point springs.",
+      "required": ["area", "k"],
+      "additionalProperties": false,
+      "properties": {
+        "area": { "type": "string", "description": "Area id this spring is assigned to." },
+        "property": { "type": "string", "description": "ETABS area-spring property name (e.g. 'Suelo'); informational/traceability." },
+        "k": {
+          "type": "array",
+          "description": "Distributed spring stiffness per unit area [U1,U2,U3] in the area local system. Translational subgrade modulus (force/length per unit area = force/length^3, per the units block). U3 is the out-of-plane (surface-normal) direction — the Winkler subgrade.",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
         }
       }
     },

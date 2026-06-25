@@ -11,6 +11,7 @@ from __future__ import annotations
 from . import _loads
 from .StructuralModel import (
     Area,
+    AreaSpring,
     Diaphragm,
     Frame,
     LoadPattern,
@@ -86,6 +87,10 @@ def build_structural_model(e) -> StructuralModel:
         Restraint(node=r["node"], dofs=tuple(r["dofs"])) for r in geo.restraints()
     ]
     springs = [Spring(node=s["node"], k=tuple(s["k"])) for s in geo.springs()]
+    area_springs = [
+        AreaSpring(area=s["area"], k=tuple(s["k"]), property=s.get("property"))
+        for s in geo.area_springs()
+    ]
     diaphragms = [
         Diaphragm(name=d["name"], nodes=tuple(d["nodes"])) for d in geo.diaphragms()
     ]
@@ -109,6 +114,7 @@ def build_structural_model(e) -> StructuralModel:
         materials=materials,
         restraints=restraints,
         springs=springs,
+        area_springs=area_springs,
         diaphragms=diaphragms,
         loads=loads,
     )

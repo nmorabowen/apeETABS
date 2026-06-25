@@ -276,6 +276,28 @@ def geo_etabs_orphan() -> apeETABS:
     return bind(make_mock(geometry=ORPHAN_GEOMETRY))
 
 
+# A foundation mat on soil: a slab-on-grade area carrying a subgrade area
+# spring (cPropAreaSpring "Suelo") — the real base-support mechanism in the
+# reference foundation models (no rigid restraints, no point springs). The
+# "Roca" property is defined but assigned to nothing (must not surface).
+SUBGRADE_GEOMETRY = GeometrySpec(
+    points={
+        "1": (0.0, 0.0, 0.0), "2": (4.0, 0.0, 0.0),
+        "3": (4.0, 4.0, 0.0), "4": (0.0, 4.0, 0.0),
+    },
+    areas={"F1": AreaSpec(["1", "2", "3", "4"], "MAT200", spring="Suelo")},
+    slab_sections={"MAT200": {"material": "C30", "thickness": 0.30}},
+    materials={"C30": {"E": 2.5e7, "nu": 0.2, "rho": 2.4}},
+    area_spring_props={"Suelo": [0.0, 0.0, 15000.0], "Roca": [0.0, 0.0, 5.0e5]},
+)
+
+
+@pytest.fixture
+def geo_etabs_subgrade() -> apeETABS:
+    """apeETABS whose base support is an area (subgrade) spring on a mat slab."""
+    return bind(make_mock(geometry=SUBGRADE_GEOMETRY))
+
+
 @pytest.fixture
 def geo_etabs_loadsets() -> apeETABS:
     """apeETABS whose model applies gravity via shell uniform load sets."""

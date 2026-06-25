@@ -15,7 +15,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import _areas, _diaphragms, _frames, _points, _props, _restraints, _springs
+from . import (
+    _area_springs,
+    _areas,
+    _diaphragms,
+    _frames,
+    _points,
+    _props,
+    _restraints,
+    _springs,
+)
 
 if TYPE_CHECKING:
     from .._session import _SessionBase
@@ -54,6 +63,14 @@ class Geometry:
     def springs(self) -> list[dict]:
         """Sprung joints: ``[{node, k}]`` (6 diagonal support stiffnesses)."""
         return _springs.read_springs(self._sap, self._point_names())
+
+    def area_springs(self) -> list[dict]:
+        """Subgrade-supported areas: ``[{area, property, k}]`` (k=[U1,U2,U3]).
+
+        Per-unit-area Winkler stiffness assigned via a ``cPropAreaSpring``
+        property (e.g. ``"Suelo"``) — the slab-on-soil base support.
+        """
+        return _area_springs.read_area_springs(self._sap, self._area_names())
 
     def diaphragms(self) -> list[dict]:
         """Named diaphragms: ``[{name, nodes}]``, one planar group per floor."""
@@ -108,6 +125,9 @@ class Geometry:
 
     def _point_names(self) -> list[str]:
         return [p["id"] for p in self.points()]
+
+    def _area_names(self) -> list[str]:
+        return [a["id"] for a in self.areas()]
 
 
 def _unique(values) -> list[str]:
