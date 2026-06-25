@@ -13,6 +13,7 @@ from .StructuralModel import (
     Area,
     Diaphragm,
     Frame,
+    LoadPattern,
     Material,
     Node,
     Restraint,
@@ -94,6 +95,10 @@ def build_structural_model(e) -> StructuralModel:
     area_names = [r["id"] for r in area_recs]
     loads = _loads.read_loads(e.SapModel, e.tables, point_names, frame_names, area_names)
 
+    nodes, restraints, springs, diaphragms, loads = _drop_orphan_nodes(
+        nodes, frames, areas, restraints, springs, diaphragms, loads
+    )
+
     return StructuralModel(
         units=_units_block(e),
         source=_source(e),
@@ -107,6 +112,39 @@ def build_structural_model(e) -> StructuralModel:
         diaphragms=diaphragms,
         loads=loads,
     )
+
+
+def _drop_orphan_nodes(nodes, frames, areas, restraints, springs, diaphragms, loads):
+    """Drop joints used by no frame or area, and scrub references to them.
+
+    ETABS carries analysis-only joints — most notably rigid-diaphragm
+    center-of-mass master joints — that connect to no member. apeGmsh is
+    geometry-first: such joints have no element to sit on, so they become
+    free (singular) nodes in the solver. The neutral document should hold only
+    meshable geometry, so they are removed here along with any restraint /
+    spring / diaphragm membership / nodal load that referenced them.
+    """
+    used = {f.i for f in frames} | {f.j for f in frames}
+    for a in areas:
+        used.update(a.nodes)
+
+    nodes = [n for n in nodes if n.id in used]
+    restraints = [r for r in restraints if r.node in used]
+    springs = [s for s in springs if s.node in used]
+
+    kept_diaphragms = []
+    for d in diaphragms:
+        members = tuple(n for n in d.nodes if n in used)
+        if len(members) >= 2:  # schema minimum
+            kept_diaphragms.append(Diaphragm(name=d.name, nodes=members, story=d.story))
+
+    kept_loads = []
+    for p in loads:
+        nodal = tuple(ld for ld in p.nodal if ld.node in used)
+        if nodal or p.frame or p.area:
+            kept_loads.append(LoadPattern(name=p.name, nodal=nodal, frame=p.frame, area=p.area))
+
+    return nodes, restraints, springs, kept_diaphragms, kept_loads
 
 
 def _units_block(e) -> dict[str, str]:
