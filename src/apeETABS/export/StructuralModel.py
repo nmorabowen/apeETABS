@@ -139,6 +139,15 @@ class Restraint:
 
 
 @dataclass(frozen=True, slots=True)
+class Spring:
+    node: str
+    k: tuple[float, float, float, float, float, float]
+
+    def to_dict(self) -> dict:
+        return {"node": self.node, "k": list(self.k)}
+
+
+@dataclass(frozen=True, slots=True)
 class Diaphragm:
     name: str
     nodes: tuple[str, ...]
@@ -213,6 +222,7 @@ class StructuralModel:
     sections: list[Section] = field(default_factory=list)
     materials: list[Material] = field(default_factory=list)
     restraints: list[Restraint] = field(default_factory=list)
+    springs: list[Spring] = field(default_factory=list)
     diaphragms: list[Diaphragm] = field(default_factory=list)
     loads: list[LoadPattern] = field(default_factory=list)
     source: dict = field(default_factory=dict)
@@ -239,6 +249,8 @@ class StructuralModel:
             d["materials"] = [m.to_dict() for m in self.materials]
         if self.restraints:
             d["restraints"] = [r.to_dict() for r in self.restraints]
+        if self.springs:
+            d["springs"] = [s.to_dict() for s in self.springs]
         if self.diaphragms:
             d["diaphragms"] = [dp.to_dict() for dp in self.diaphragms]
         if self.loads:
@@ -351,6 +363,11 @@ def _structural_check(doc: dict) -> None:
     for r in doc.get("restraints", []):
         need_node(r["node"], "restraint")
         _check_dof_mask(r["dofs"], f"restraint on {r['node']!r}")
+
+    for s in doc.get("springs", []):
+        need_node(s["node"], "spring")
+        if len(s["k"]) != 6:
+            raise SchemaError(f"spring on {s['node']!r} needs 6 stiffnesses, got {s['k']!r}.")
 
     for dp in doc.get("diaphragms", []):
         for nid in dp.get("nodes", []):

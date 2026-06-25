@@ -81,6 +81,16 @@ def test_shell_uniform_load_sets(geo_etabs_loadsets):
     assert ("S1", 1.96, "gravity") in live_areas
 
 
+def test_springs_exported(geo_etabs):
+    model = geo_etabs.export.structural_model()
+    springs = {s.node: s for s in model.springs}
+    assert set(springs) == {"7"}
+    assert springs["7"].k == (100.0, 100.0, 2000.0, 0.0, 0.0, 0.0)
+    # And it round-trips through the schema.
+    doc = model.to_dict()
+    assert doc["springs"] == [{"node": "7", "k": [100.0, 100.0, 2000.0, 0.0, 0.0, 0.0]}]
+
+
 def test_diaphragm_unions_joint_and_area_membership(geo_etabs):
     diaphragms = {d.name: d for d in geo_etabs.export.structural_model().diaphragms}
     assert set(diaphragms) == {"D1"}

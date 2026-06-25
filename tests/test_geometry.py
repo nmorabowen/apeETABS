@@ -54,6 +54,12 @@ def test_restraints(geo_etabs):
     assert restraints["1"]["dofs"] == [1, 1, 1, 1, 1, 1]
 
 
+def test_springs(geo_etabs):
+    springs = {s["node"]: s for s in geo_etabs.geometry.springs()}
+    assert set(springs) == {"7"}  # only joints with nonzero stiffness
+    assert springs["7"]["k"] == [100.0, 100.0, 2000.0, 0.0, 0.0, 0.0]
+
+
 def test_diaphragms(geo_etabs):
     diaphragms = geo_etabs.geometry.diaphragms()
     assert len(diaphragms) == 1

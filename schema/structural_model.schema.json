@@ -20,6 +20,7 @@
     "sections": { "type": "array", "items": { "$ref": "#/$defs/section" } },
     "materials": { "type": "array", "items": { "$ref": "#/$defs/material" } },
     "restraints": { "type": "array", "items": { "$ref": "#/$defs/restraint" } },
+    "springs": { "type": "array", "items": { "$ref": "#/$defs/spring" } },
     "diaphragms": { "type": "array", "items": { "$ref": "#/$defs/diaphragm" } },
     "loads": {
       "type": "object",
@@ -151,6 +152,23 @@
       "properties": {
         "node": { "type": "string" },
         "dofs": { "$ref": "#/$defs/dofMask" }
+      }
+    },
+
+    "spring": {
+      "type": "object",
+      "description": "Uncoupled point support spring: the six diagonal stiffnesses.",
+      "required": ["node", "k"],
+      "additionalProperties": false,
+      "properties": {
+        "node": { "type": "string" },
+        "k": {
+          "type": "array",
+          "description": "Diagonal 6x6 spring stiffness [Kux,Kuy,Kuz,Krx,Kry,Krz] in the point local system. Translational: force/length; rotational: force·length/rad (per the units block).",
+          "items": { "type": "number" },
+          "minItems": 6,
+          "maxItems": 6
+        }
       }
     },
 
