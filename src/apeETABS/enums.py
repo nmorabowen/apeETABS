@@ -56,6 +56,14 @@ class eMatType(IntEnum):
     Masonry = 8
 
 
+class eDiaphragmOption(IntEnum):
+    """Joint diaphragm option (``cPointObj.GetDiaphragm``)."""
+
+    Disconnect = 1
+    FromShellObject = 2
+    DefinedDiaphragm = 3
+
+
 class eLoadPatternType(IntEnum):
     """Load pattern type (``cLoadPatterns.Add`` ``MyType`` argument)."""
 

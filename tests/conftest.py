@@ -17,7 +17,17 @@ import pytest
 
 from apeETABS import apeETABS
 
-from ._mock_sapmodel import MockETABS, MockSapModel, StoriesSpec
+from ._mock_sapmodel import (
+    AreaSpec,
+    AreaUnifLoad,
+    FrameDistLoad,
+    FrameSpec,
+    GeometrySpec,
+    MockETABS,
+    MockSapModel,
+    PointLoad,
+    StoriesSpec,
+)
 
 # Stories: top-first (Story3 .. Story1), base at 0.0. Heights are per-story.
 DEFAULT_STORIES = StoriesSpec(
@@ -83,12 +93,57 @@ DEFAULT_TABLES: dict[str, tuple[list[str], list[list]]] = {
 }
 
 
+# Geometry-read fixture (ADR 0009): a small wall+slab+frame box. 8 joints,
+# 4 columns + 3 beams, a slab + a wall, 4 fixed base joints, one rigid
+# diaphragm at the top story, and Dead/Live loads exercising all three load
+# getters. Mirrors schema/examples/wall_slab_frame.sm.json.
+DEFAULT_GEOMETRY = GeometrySpec(
+    points={
+        "1": (0.0, 0.0, 0.0), "2": (4.0, 0.0, 0.0),
+        "3": (4.0, 4.0, 0.0), "4": (0.0, 4.0, 0.0),
+        "5": (0.0, 0.0, 3.0), "6": (4.0, 0.0, 3.0),
+        "7": (4.0, 4.0, 3.0), "8": (0.0, 4.0, 3.0),
+    },
+    restraints={n: [True] * 6 for n in ("1", "2", "3", "4")},
+    # Mix of shell-inherited (2 = FromShellObject) and explicit (3 = Defined)
+    # diaphragm joints — both must be grouped; only Disconnect (1) is skipped.
+    point_diaphragm={"5": (2, "D1"), "6": (2, "D1"), "7": (3, "D1"), "8": (3, "D1")},
+    frames={
+        "C1": FrameSpec("1", "5", "COL400"),
+        "C2": FrameSpec("2", "6", "COL400"),
+        "C3": FrameSpec("3", "7", "COL400"),
+        "C4": FrameSpec("4", "8", "COL400"),
+        "B1": FrameSpec("6", "7", "BEAM300",
+                        releases_j=[False, False, False, False, False, True]),
+        "B2": FrameSpec("7", "8", "BEAM300"),
+        "B3": FrameSpec("8", "5", "BEAM300"),
+    },
+    areas={
+        "S1": AreaSpec(["5", "6", "7", "8"], "SLAB200"),
+        "W1": AreaSpec(["1", "2", "6", "5"], "WALL250"),
+    },
+    frame_sections={
+        "COL400": {"material": "C30",
+                   "props": {"A": 0.16, "Iy": 2.133e-3, "Iz": 2.133e-3, "J": 3.604e-3}},
+        "BEAM300": {"material": "C30",
+                    "props": {"A": 0.12, "Iy": 9.0e-4, "Iz": 1.6e-3, "J": 1.78e-3}},
+    },
+    slab_sections={"SLAB200": {"material": "C30", "thickness": 0.20}},
+    wall_sections={"WALL250": {"material": "C30", "thickness": 0.25}},
+    materials={"C30": {"E": 2.5e7, "nu": 0.2, "rho": 2.4}},
+    area_loads={"S1": [AreaUnifLoad("Dead", -5.0, direction=6)]},      # 6 = global Z
+    frame_loads={"B1": [FrameDistLoad("Dead", -10.0, direction=6)]},
+    point_loads={"7": [PointLoad("Live", f=(5.0, 0.0, 0.0))]},
+)
+
+
 def make_mock(
     *,
     tables: dict | None = None,
     stories: StoriesSpec | None = None,
     units: tuple[int, int, int] = (4, 6, 2),
     locked: bool = False,
+    geometry: GeometrySpec | None = None,
 ) -> MockETABS:
     """Build a MockETABS app, defaulting to the shared fixture data."""
     sap = MockSapModel(
@@ -96,6 +151,7 @@ def make_mock(
         stories=DEFAULT_STORIES if stories is None else stories,
         units=units,
         locked=locked,
+        geometry=geometry,
     )
     return MockETABS(sap)
 
@@ -120,3 +176,9 @@ def mock_app() -> MockETABS:
 def etabs(mock_app: MockETABS) -> apeETABS:
     """A real apeETABS bound to the default mock (units/tables/stories live)."""
     return bind(mock_app)
+
+
+@pytest.fixture
+def geo_etabs() -> apeETABS:
+    """A real apeETABS bound to a mock carrying the geometry fixture (ADR 0009)."""
+    return bind(make_mock(geometry=DEFAULT_GEOMETRY))

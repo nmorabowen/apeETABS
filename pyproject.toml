@@ -26,7 +26,10 @@ plot = ["matplotlib"]
 fuzzy = ["rapidfuzz"]
 # Attaching to a running instance by process id.
 process = ["psutil"]
-dev = ["pytest>=7", "ruff>=0.6"]
+# Full JSON Schema validation of exported .sm.json (ADR 0009). Without it the
+# exporter still runs a dependency-free structural check.
+validate = ["jsonschema"]
+dev = ["pytest>=7", "ruff>=0.6", "jsonschema"]
 
 [project.urls]
 "Homepage" = "https://github.com/nmorabowen/apeETABS"
