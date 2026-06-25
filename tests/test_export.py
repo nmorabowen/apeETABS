@@ -147,7 +147,9 @@ def test_round_trip_json_identical(geo_etabs, tmp_path):
 def test_orphan_joint_dropped(geo_etabs_orphan):
     # Joint 99 connects to no member -> dropped from the export, and every
     # reference to it (restraint, nodal load, diaphragm membership) scrubbed.
-    model = geo_etabs_orphan.export.structural_model()
+    # It also carries a real nodal load -> dropping it warns (silent loss).
+    with pytest.warns(UserWarning, match="loaded free joint.*'99'"):
+        model = geo_etabs_orphan.export.structural_model()
     ids = {n.id for n in model.nodes}
     assert ids == {"1", "2", "3"}
     assert "99" not in ids
