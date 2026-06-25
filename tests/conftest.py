@@ -105,7 +105,9 @@ DEFAULT_GEOMETRY = GeometrySpec(
         "7": (4.0, 4.0, 3.0), "8": (0.0, 4.0, 3.0),
     },
     restraints={n: [True] * 6 for n in ("1", "2", "3", "4")},
-    point_diaphragm={n: (3, "D1") for n in ("5", "6", "7", "8")},  # 3 = Defined
+    # Mix of shell-inherited (2 = FromShellObject) and explicit (3 = Defined)
+    # diaphragm joints — both must be grouped; only Disconnect (1) is skipped.
+    point_diaphragm={"5": (2, "D1"), "6": (2, "D1"), "7": (3, "D1"), "8": (3, "D1")},
     frames={
         "C1": FrameSpec("1", "5", "COL400"),
         "C2": FrameSpec("2", "6", "COL400"),
