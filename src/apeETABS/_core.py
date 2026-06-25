@@ -34,6 +34,8 @@ if TYPE_CHECKING:
     from .creation.Create import Create
     from .creation.New import New
     from .standards.Standards import Standards
+    from .geometry.Geometry import Geometry
+    from .export.Export import Export
 
 
 class apeETABS(_SessionBase):
@@ -73,6 +75,9 @@ class apeETABS(_SessionBase):
         ("new",     ".creation.New",    "New",    False),
         # Standards layer (ADR 0008): opinionated presets over the builders.
         ("standards", ".standards.Standards", "Standards", False),
+        # Geometry-read + export layer (ADR 0009): enumerate -> neutral .sm.json.
+        ("geometry", ".geometry.Geometry", "Geometry", False),
+        ("export",   ".export.Export",     "Export",   False),
     )
 
     # Static type declarations for composites (created at runtime by begin()).
@@ -87,3 +92,5 @@ class apeETABS(_SessionBase):
     create: "Create"
     new: "New"
     standards: "Standards"
+    geometry: "Geometry"
+    export: "Export"

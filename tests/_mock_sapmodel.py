@@ -67,6 +67,93 @@ class StoriesSpec:
             self.color = [0] * n
 
 
+@dataclass
+class FrameSpec:
+    """Fixture spec for one frame object (geometry-read layer, ADR 0009)."""
+
+    i: str
+    j: str
+    section: str
+    angle: float = 0.0
+    story: str = ""
+    releases_i: list[bool] = field(default_factory=lambda: [False] * 6)
+    releases_j: list[bool] = field(default_factory=lambda: [False] * 6)
+
+
+@dataclass
+class AreaSpec:
+    """Fixture spec for one area object."""
+
+    points: list[str]
+    section: str
+    angle: float = 0.0
+    opening: bool = False
+    diaphragm: str = ""
+
+
+@dataclass
+class PointLoad:
+    """Fixture spec for a joint force/moment in a load pattern."""
+
+    pat: str
+    f: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    m: tuple[float, float, float] = (0.0, 0.0, 0.0)
+
+
+@dataclass
+class FrameDistLoad:
+    """Fixture spec for a uniform frame distributed load."""
+
+    pat: str
+    value: float
+    direction: int = 10  # gravity
+    mytype: int = 1       # force/length
+
+
+@dataclass
+class AreaUnifLoad:
+    """Fixture spec for a uniform area pressure load."""
+
+    pat: str
+    value: float
+    direction: int = 10  # gravity
+
+
+@dataclass
+class GeometrySpec:
+    """Fixture payload for the geometry-read getters (ADR 0009).
+
+    The collaborators (``PointObj`` / ``FrameObj`` / ``AreaObj`` /
+    ``PropFrame`` / ``PropArea`` / ``PropMaterial``) read these to reproduce
+    the ``[outputs..., ret]`` contract of the object-API getters apeETABS calls
+    in :mod:`apeETABS.geometry`.
+    """
+
+    points: dict[str, tuple[float, float, float]] = field(default_factory=dict)
+    restraints: dict[str, list[bool]] = field(default_factory=dict)
+    # point name -> (eDiaphragmOption code, diaphragm name)
+    point_diaphragm: dict[str, tuple[int, str]] = field(default_factory=dict)
+    frames: dict[str, FrameSpec] = field(default_factory=dict)
+    areas: dict[str, AreaSpec] = field(default_factory=dict)
+    # section name -> {"material": str, "props": {key: float}}
+    frame_sections: dict[str, dict] = field(default_factory=dict)
+    # section name -> {"material": str, "thickness": float}
+    slab_sections: dict[str, dict] = field(default_factory=dict)
+    wall_sections: dict[str, dict] = field(default_factory=dict)
+    # material name -> {"E": float, "nu": float, "rho": float}
+    materials: dict[str, dict] = field(default_factory=dict)
+    point_loads: dict[str, list[PointLoad]] = field(default_factory=dict)
+    frame_loads: dict[str, list[FrameDistLoad]] = field(default_factory=dict)
+    area_loads: dict[str, list[AreaUnifLoad]] = field(default_factory=dict)
+
+
+# Order of cPropFrame.GetSectProps outputs, mapped to the schema prop keys
+# apeETABS reconstructs (mirrors apeETABS.geometry._props._SECT_PROP_KEYS).
+_SECT_PROP_ORDER = (
+    "A", "As2", "As3", "J", "Iy", "Iz", "Sy", "Sz", "Zy", "Zz", "ry", "rz",
+)
+
+
 class _DatabaseTables:
     """Fake ``cSapModel.DatabaseTables``."""
 
@@ -136,7 +223,8 @@ class _Story:
 class _FrameObj:
     """Fake ``cSapModel.FrameObj`` recording ChangeName/Delete/Add calls."""
 
-    def __init__(self) -> None:
+    def __init__(self, geom: "GeometrySpec | None" = None) -> None:
+        self._geom = geom or GeometrySpec()
         self.renamed: list[tuple[str, str]] = []
         self.deleted: list[tuple[str, int]] = []
         # Creation (ADR 0006): record AddByCoord and serve GetPoints.
@@ -146,6 +234,56 @@ class _FrameObj:
         self._points: dict[str, tuple[str, str]] = {}
         # Loadings (ADR 0008 assign primitive): record distributed loads.
         self.dist_loads: list[dict] = []
+
+    # -- geometry-read getters (ADR 0009) -------------------------------
+
+    # GetAllFrames(...) -> [NumberNames, MyName, PropName, StoryName,
+    #   PointName1, PointName2, P1X, P1Y, P1Z, P2X, P2Y, P2Z, Angle,
+    #   Off1X, Off2X, Off1Y, Off2Y, Off1Z, Off2Z, CardinalPoint, ret]
+    def GetAllFrames(self, *_args):
+        g = self._geom
+        names = list(g.frames)
+        props, stories, p1, p2 = [], [], [], []
+        x1, y1, z1, x2, y2, z2, ang = [], [], [], [], [], [], []
+        for nm in names:
+            fr = g.frames[nm]
+            props.append(fr.section)
+            stories.append(fr.story)
+            p1.append(fr.i)
+            p2.append(fr.j)
+            xi, yi, zi = g.points[fr.i]
+            xj, yj, zj = g.points[fr.j]
+            x1.append(xi)
+            y1.append(yi)
+            z1.append(zi)
+            x2.append(xj)
+            y2.append(yj)
+            z2.append(zj)
+            ang.append(fr.angle)
+        zeros = [0.0] * len(names)
+        return [
+            len(names), names, props, stories, p1, p2,
+            x1, y1, z1, x2, y2, z2, ang,
+            list(zeros), list(zeros), list(zeros), list(zeros), list(zeros),
+            list(zeros), [0] * len(names), 0,
+        ]
+
+    # GetReleases(Name, II, JJ, StartValue, EndValue) -> [II, JJ, SV, EV, ret]
+    def GetReleases(self, name, *_args):
+        fr = self._geom.frames[name]
+        return [list(fr.releases_i), list(fr.releases_j), [0.0] * 6, [0.0] * 6, 0]
+
+    # GetLoadDistributed(...) -> [NumberItems, FrameName, LoadPat, MyType, CSys,
+    #   Dir, RD1, RD2, Dist1, Dist2, Val1, Val2, ret]
+    def GetLoadDistributed(self, name, *_args):
+        loads = self._geom.frame_loads.get(name, [])
+        n = len(loads)
+        return [
+            n, [name] * n, [ld.pat for ld in loads], [ld.mytype for ld in loads],
+            ["Global"] * n, [ld.direction for ld in loads],
+            [0.0] * n, [1.0] * n, [0.0] * n, [1.0] * n,
+            [ld.value for ld in loads], [ld.value for ld in loads], 0,
+        ]
 
     # ChangeName(Name, NewName) -> ret
     def ChangeName(self, name, new_name):
@@ -193,8 +331,8 @@ class _FrameObj:
 class _AreaObj(_FrameObj):
     """Fake ``cSapModel.AreaObj`` recording SetLoadUniform (+ FrameObj contract)."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, geom: "GeometrySpec | None" = None) -> None:
+        super().__init__(geom)
         self.uniform_loads: list[dict] = []
 
     # SetLoadUniform(Name, LoadPat, Value, Dir, Replace, CSys, ItemType) -> ret
@@ -206,11 +344,46 @@ class _AreaObj(_FrameObj):
         })
         return 0
 
+    # -- geometry-read getters (ADR 0009) -------------------------------
+
+    # GetNameList(NumberNames, MyName) -> [NumberNames, MyName, ret]
+    def GetNameList(self, *_args):
+        names = list(self._geom.areas)
+        return [len(names), names, 0]
+
+    # GetPoints(Name, NumberPoints, Point) -> [NumberPoints, Point, ret]
+    # (overrides _FrameObj.GetPoints — area form returns N boundary joints.)
+    def GetPoints(self, name, *_args):
+        pts = list(self._geom.areas[name].points)
+        return [len(pts), pts, 0]
+
+    # GetProperty(Name, PropName) -> [PropName, ret]
+    def GetProperty(self, name, *_args):
+        return [self._geom.areas[name].section, 0]
+
+    # GetLocalAxes(Name, Ang, Advanced) -> [Ang, Advanced, ret]
+    def GetLocalAxes(self, name, *_args):
+        return [float(self._geom.areas[name].angle), False, 0]
+
+    # GetOpening(Name, IsOpening) -> [IsOpening, ret]
+    def GetOpening(self, name, *_args):
+        return [bool(self._geom.areas[name].opening), 0]
+
+    # GetLoadUniform(...) -> [NumberItems, AreaName, LoadPat, CSys, Dir, Value, ret]
+    def GetLoadUniform(self, name, *_args):
+        loads = self._geom.area_loads.get(name, [])
+        n = len(loads)
+        return [
+            n, [name] * n, [ld.pat for ld in loads], ["Global"] * n,
+            [ld.direction for ld in loads], [ld.value for ld in loads], 0,
+        ]
+
 
 class _PointObj:
     """Fake ``cSapModel.PointObj`` recording ChangeName/Delete/SetRestraint/Add."""
 
-    def __init__(self) -> None:
+    def __init__(self, geom: "GeometrySpec | None" = None) -> None:
+        self._geom = geom or GeometrySpec()
         self.renamed: list[tuple[str, str]] = []
         self.deleted: list[tuple[str, int]] = []
         self.restraints: list[tuple[str, list[bool], int]] = []
@@ -219,6 +392,39 @@ class _PointObj:
         self._auto = 0
         # Loadings (ADR 0008 assign primitive): record point forces.
         self.forces: list[dict] = []
+
+    # -- geometry-read getters (ADR 0009) -------------------------------
+
+    # GetAllPoints(NumberNames, MyName, X, Y, Z, csys)
+    #   -> [NumberNames, MyName, X, Y, Z, ret]
+    def GetAllPoints(self, *_args):
+        names = list(self._geom.points)
+        xs = [self._geom.points[n][0] for n in names]
+        ys = [self._geom.points[n][1] for n in names]
+        zs = [self._geom.points[n][2] for n in names]
+        return [len(names), names, xs, ys, zs, 0]
+
+    # GetRestraint(Name, Value) -> [Value, ret]
+    def GetRestraint(self, name, *_args):
+        return [list(self._geom.restraints.get(name, [False] * 6)), 0]
+
+    # GetDiaphragm(Name, DiaphragmOption, DiaphragmName)
+    #   -> [DiaphragmOption, DiaphragmName, ret]
+    def GetDiaphragm(self, name, *_args):
+        option, dname = self._geom.point_diaphragm.get(name, (1, ""))  # 1 = Disconnect
+        return [int(option), dname, 0]
+
+    # GetLoadForce(...) -> [NumberItems, PointName, LoadPat, LcStep, CSys,
+    #   F1, F2, F3, M1, M2, M3, ret]
+    def GetLoadForce(self, name, *_args):
+        loads = self._geom.point_loads.get(name, [])
+        n = len(loads)
+        return [
+            n, [name] * n, [ld.pat for ld in loads], [0] * n, ["Global"] * n,
+            [ld.f[0] for ld in loads], [ld.f[1] for ld in loads], [ld.f[2] for ld in loads],
+            [ld.m[0] for ld in loads], [ld.m[1] for ld in loads], [ld.m[2] for ld in loads],
+            0,
+        ]
 
     # ChangeName(Name, NewName) -> ret
     def ChangeName(self, name, new_name):
@@ -255,7 +461,8 @@ class _PointObj:
 class _PropMaterial:
     """Fake ``cSapModel.PropMaterial`` recording SetMaterial/SetMPIsotropic."""
 
-    def __init__(self) -> None:
+    def __init__(self, geom: "GeometrySpec | None" = None) -> None:
+        self._geom = geom or GeometrySpec()
         self.materials: list[tuple[str, int]] = []
         self.isotropic: list[tuple[str, float, float, float]] = []
         # Catalog adds (ADR 0006): record AddMaterial calls.
@@ -291,6 +498,20 @@ class _PropMaterial:
     def SetMPIsotropic(self, name, E, U, A, temp=0.0):
         self.isotropic.append((name, float(E), float(U), float(A)))
         return 0
+
+    # -- geometry-read getters (ADR 0009) -------------------------------
+
+    # GetMPIsotropic(Name, E, U, A, G, Temp) -> [E, U, A, G, ret]
+    def GetMPIsotropic(self, name, *_args):
+        m = self._geom.materials[name]
+        E, nu = float(m["E"]), float(m["nu"])
+        G = E / (2.0 * (1.0 + nu))
+        return [E, nu, float(m.get("alpha", 0.0)), G, 0]
+
+    # GetWeightAndMass(Name, W, M, Temp) -> [W, M, ret]
+    def GetWeightAndMass(self, name, *_args):
+        m = self._geom.materials[name]
+        return [float(m.get("weight", 0.0)), float(m.get("rho", 0.0)), 0]
 
     # SetMassSource_1(IncludeElements, IncludeAddedMass, IncludeLoads,
     #   NumberLoads, LoadPat, sf) -> ret
@@ -403,15 +624,57 @@ class _RespCombo:
 
 
 class _PropFrame:
-    """Fake ``cSapModel.PropFrame`` recording SetRectangle."""
+    """Fake ``cSapModel.PropFrame`` recording SetRectangle + serving getters."""
 
-    def __init__(self) -> None:
+    def __init__(self, geom: "GeometrySpec | None" = None) -> None:
+        self._geom = geom or GeometrySpec()
         self.rectangles: list[tuple[str, str, float, float]] = []
 
     # SetRectangle(Name, MatProp, T3, T2, Color, Notes, GUID) -> ret
     def SetRectangle(self, name, mat, t3, t2, *_rest):
         self.rectangles.append((name, mat, float(t3), float(t2)))
         return 0
+
+    # -- geometry-read getters (ADR 0009) -------------------------------
+
+    # GetMaterial(Name, MatProp) -> [MatProp, ret]
+    def GetMaterial(self, name, *_args):
+        return [self._geom.frame_sections[name]["material"], 0]
+
+    # GetSectProps(Name, Area, As2, As3, Torsion, I22, I33, S22, S33, Z22, Z33,
+    #   R22, R33) -> [12 values..., ret]
+    def GetSectProps(self, name, *_args):
+        props = self._geom.frame_sections[name].get("props", {})
+        return [float(props.get(k, 0.0)) for k in _SECT_PROP_ORDER] + [0]
+
+
+class _PropArea:
+    """Fake ``cSapModel.PropArea`` serving slab/wall/shell getters (ADR 0009)."""
+
+    def __init__(self, geom: "GeometrySpec | None" = None) -> None:
+        self._geom = geom or GeometrySpec()
+
+    # GetSlab(Name, SlabType, ShellType, MatProp, Thickness, color, notes, GUID)
+    #   -> [SlabType, ShellType, MatProp, Thickness, color, notes, GUID, ret]
+    def GetSlab(self, name, *_args):
+        spec = self._geom.slab_sections.get(name)
+        if spec is None:
+            return [0, 0, "", 0.0, 0, "", "", 1]  # ret != 0 -> not a slab
+        return [1, 1, spec["material"], float(spec["thickness"]), 0, "", "", 0]
+
+    # GetWall(Name, WallPropType, ShellType, MatProp, Thickness, color, notes,
+    #   GUID) -> [WallPropType, ShellType, MatProp, Thickness, color, notes,
+    #   GUID, ret]
+    def GetWall(self, name, *_args):
+        spec = self._geom.wall_sections.get(name)
+        if spec is None:
+            return [0, 0, "", 0.0, 0, "", "", 1]  # ret != 0 -> not a wall
+        return [1, 1, spec["material"], float(spec["thickness"]), 0, "", "", 0]
+
+    # GetShellDesign(Name, MatProp, SteelLayoutOption, Cover...) -> [MatProp,
+    #   opt, c1, c2, c3, c4, ret] (material-only fallback)
+    def GetShellDesign(self, name, *_args):
+        return ["", 0, 0.0, 0.0, 0.0, 0.0, 0]
 
 
 class _LoadPatterns:
@@ -465,26 +728,30 @@ class MockSapModel:
         units: tuple[int, int, int] = (4, 6, 2),  # kN, m, C
         locked: bool = False,
         empty_tables: set[str] | None = None,
+        geometry: GeometrySpec | None = None,
     ) -> None:
         self._tables = tables or {}
         if isinstance(stories, dict):
             stories = StoriesSpec(**stories)
         self._units = list(units)
         self._locked = bool(locked)
+        geom = geometry or GeometrySpec()
 
         self.DatabaseTables = _DatabaseTables(self._tables, empty_tables)
         self.Story = _Story(stories) if stories is not None else None
         self.File = _File()
 
         # Editing collaborators (ADR 0005): record ChangeName/Delete/SetRestraint.
-        # They also serve the creation Add* calls (ADR 0006).
-        self.FrameObj = _FrameObj()
-        self.AreaObj = _AreaObj()
-        self.PointObj = _PointObj()
+        # They also serve the creation Add* calls (ADR 0006) and the
+        # geometry-read getters (ADR 0009).
+        self.FrameObj = _FrameObj(geom)
+        self.AreaObj = _AreaObj(geom)
+        self.PointObj = _PointObj(geom)
 
         # Creation collaborators (ADR 0006): record the define/* calls.
-        self.PropMaterial = _PropMaterial()
-        self.PropFrame = _PropFrame()
+        self.PropMaterial = _PropMaterial(geom)
+        self.PropFrame = _PropFrame(geom)
+        self.PropArea = _PropArea(geom)
         self.LoadPatterns = _LoadPatterns()
         self.RespCombo = _RespCombo()
         self.Func = _Func()
