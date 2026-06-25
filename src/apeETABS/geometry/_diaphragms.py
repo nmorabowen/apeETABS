@@ -11,7 +11,10 @@ Membership comes from two sources, unioned by diaphragm name:
   case for a rigid floor (verified live: a real model assigns the diaphragm on
   the slabs, not per joint), and joint-level capture alone misses it.
 
-Each named group becomes a rigid-diaphragm constraint downstream.
+ETABS reuses one diaphragm *name* (e.g. ``D1``) across every story, so grouping
+by name alone merges all floors into a single non-planar constraint. Each named
+group is therefore split by elevation — one planar rigid diaphragm per floor
+(``D1@<z>`` when a name spans more than one level).
 """
 
 from __future__ import annotations
@@ -19,18 +22,23 @@ from __future__ import annotations
 from ..enums import eDiaphragmOption
 from ..errors import ok
 
+# Joints within this vertical tolerance are treated as one floor.
+_ELEV_TOL = 3  # decimal places (present length units)
 
-def read_diaphragms(sap, point_names, areas) -> list[dict]:
-    """Named diaphragms as ``[{name, nodes}]`` (joint + area-level membership)."""
+
+def read_diaphragms(sap, points, areas) -> list[dict]:
+    """Named diaphragms as ``[{name, nodes}]``, one planar group per floor."""
+    z_of = {p["id"]: p["z"] for p in points}
     groups: dict[str, dict[str, None]] = {}  # name -> ordered-unique node set
 
     def add(dia: str, node: str) -> None:
         groups.setdefault(str(dia), {}).setdefault(str(node), None)
 
-    for name in point_names:
+    for p in points:
+        name = p["id"]
         # GetDiaphragm out order: DiaphragmOption, DiaphragmName.
         option, dia_name = ok(
-            sap.PointObj.GetDiaphragm(str(name), 0, ""), "GetDiaphragm"
+            sap.PointObj.GetDiaphragm(name, 0, ""), "GetDiaphragm"
         )
         if int(option) != eDiaphragmOption.Disconnect and dia_name:
             add(dia_name, name)
@@ -42,4 +50,14 @@ def read_diaphragms(sap, point_names, areas) -> list[dict]:
             for node in area["nodes"]:
                 add(dia_name, node)
 
-    return [{"name": dia, "nodes": list(nodes)} for dia, nodes in groups.items()]
+    diaphragms: list[dict] = []
+    for name, nodes in groups.items():
+        by_elev: dict[float, list[str]] = {}
+        for nid in nodes:
+            by_elev.setdefault(round(z_of.get(nid, 0.0), _ELEV_TOL), []).append(nid)
+        if len(by_elev) == 1:
+            diaphragms.append({"name": name, "nodes": list(nodes)})
+        else:
+            for z in sorted(by_elev):
+                diaphragms.append({"name": f"{name}@{z:g}", "nodes": by_elev[z]})
+    return diaphragms
