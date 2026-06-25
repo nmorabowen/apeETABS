@@ -105,9 +105,10 @@ DEFAULT_GEOMETRY = GeometrySpec(
         "7": (4.0, 4.0, 3.0), "8": (0.0, 4.0, 3.0),
     },
     restraints={n: [True] * 6 for n in ("1", "2", "3", "4")},
-    # Mix of shell-inherited (2 = FromShellObject) and explicit (3 = Defined)
-    # diaphragm joints — both must be grouped; only Disconnect (1) is skipped.
-    point_diaphragm={"5": (2, "D1"), "6": (2, "D1"), "7": (3, "D1"), "8": (3, "D1")},
+    # Joints 5,6 carry the diaphragm at the joint level (2 = FromShellObject);
+    # joints 7,8 do NOT — they reach D1 only via the slab's area-level
+    # assignment (AreaObj.GetDiaphragm on S1), exercising both capture paths.
+    point_diaphragm={"5": (2, "D1"), "6": (2, "D1")},
     frames={
         "C1": FrameSpec("1", "5", "COL400"),
         "C2": FrameSpec("2", "6", "COL400"),
@@ -119,7 +120,7 @@ DEFAULT_GEOMETRY = GeometrySpec(
         "B3": FrameSpec("8", "5", "BEAM300"),
     },
     areas={
-        "S1": AreaSpec(["5", "6", "7", "8"], "SLAB200"),
+        "S1": AreaSpec(["5", "6", "7", "8"], "SLAB200", diaphragm="D1"),
         "W1": AreaSpec(["1", "2", "6", "5"], "WALL250"),
     },
     frame_sections={
@@ -182,3 +183,52 @@ def etabs(mock_app: MockETABS) -> apeETABS:
 def geo_etabs() -> apeETABS:
     """A real apeETABS bound to a mock carrying the geometry fixture (ADR 0009)."""
     return bind(make_mock(geometry=DEFAULT_GEOMETRY))
+
+
+# Shell uniform load sets (the DatabaseTables load path): the set "Entrepiso"
+# defines Dead/Live pressures; the assignment table maps area S1 to that set.
+GEO_LOADSET_TABLES = {
+    "Shell Uniform Load Sets": (
+        ["Name", "LoadPattern", "LoadValue", "GUID"],
+        [["Entrepiso", "Dead", "2.94", ""], ["Entrepiso", "Live", "1.96", ""]],
+    ),
+    "Area Load Assignments - Uniform Load Sets": (
+        ["Story", "Label", "UniqueName", "LoadSet"],
+        [["Story1", "S1", "S1", "Entrepiso"]],
+    ),
+}
+
+
+# Exotic properties that the basic getters can't fully read (real-model
+# variety): an auto-select frame section (no material/props), a uniaxial
+# rebar material (not isotropic), and a fully-unreadable material.
+EXOTIC_GEOMETRY = GeometrySpec(
+    points={"1": (0.0, 0.0, 0.0), "2": (0.0, 0.0, 3.0)},
+    frames={
+        "X": FrameSpec("1", "2", "AUTO"),   # AUTO absent below -> getters ret=1
+        "Y": FrameSpec("1", "2", "COLR"),
+        "Z": FrameSpec("1", "2", "COLZ"),
+    },
+    frame_sections={
+        "COLR": {"material": "Rebar", "props": {"A": 0.1}},
+        "COLZ": {"material": "Ghost", "props": {"A": 0.1}},
+    },
+    materials={"Rebar": {"E": 2.0e8, "nu": 0.0, "uniaxial": True}},  # Ghost absent
+)
+
+
+@pytest.fixture
+def geo_etabs_exotic() -> apeETABS:
+    """apeETABS whose model has sections/materials the basic getters can't read."""
+    return bind(make_mock(geometry=EXOTIC_GEOMETRY))
+
+
+@pytest.fixture
+def geo_etabs_loadsets() -> apeETABS:
+    """apeETABS whose model applies gravity via shell uniform load sets."""
+    return bind(
+        make_mock(
+            geometry=DEFAULT_GEOMETRY,
+            tables={**DEFAULT_TABLES, **GEO_LOADSET_TABLES},
+        )
+    )

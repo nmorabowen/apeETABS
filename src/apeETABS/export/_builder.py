@@ -90,7 +90,7 @@ def build_structural_model(e) -> StructuralModel:
     point_names = [r["id"] for r in point_recs]
     frame_names = [r["id"] for r in frame_recs]
     area_names = [r["id"] for r in area_recs]
-    loads = _loads.read_loads(e.SapModel, point_names, frame_names, area_names)
+    loads = _loads.read_loads(e.SapModel, e.tables, point_names, frame_names, area_names)
 
     return StructuralModel(
         units=_units_block(e),

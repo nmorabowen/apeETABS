@@ -56,6 +56,38 @@ def test_loads_assembled_per_pattern(geo_etabs):
     assert live.nodal[0].force_xyz == (5.0, 0.0, 0.0)
 
 
+def test_exotic_props_degrade_gracefully(geo_etabs_exotic):
+    # An auto-select section + a uniaxial material + an unreadable material
+    # must not abort the export.
+    model = geo_etabs_exotic.export.structural_model()  # validates, must not raise
+    sections = {s.name: s for s in model.sections}
+    # Auto-select: emitted, but no material and no computed props.
+    assert sections["AUTO"].material is None
+    assert not sections["AUTO"].props
+    # Uniaxial rebar material falls back to E with nu=0; Ghost is dropped.
+    materials = {m.name: m for m in model.materials}
+    assert set(materials) == {"Rebar"}
+    assert materials["Rebar"].nu == 0.0
+    assert materials["Rebar"].E == 2.0e8
+
+
+def test_shell_uniform_load_sets(geo_etabs_loadsets):
+    # Gravity applied via a named load set assigned to a slab (DatabaseTables
+    # path) surfaces as gravity area loads per pattern.
+    loads = {p.name: p for p in geo_etabs_loadsets.export.structural_model().loads}
+    dead_areas = {(a.area, a.value, a.direction) for a in loads["Dead"].area}
+    assert ("S1", 2.94, "gravity") in dead_areas
+    live_areas = {(a.area, a.value, a.direction) for a in loads["Live"].area}
+    assert ("S1", 1.96, "gravity") in live_areas
+
+
+def test_diaphragm_unions_joint_and_area_membership(geo_etabs):
+    diaphragms = {d.name: d for d in geo_etabs.export.structural_model().diaphragms}
+    assert set(diaphragms) == {"D1"}
+    # 5,6 via joint-level; 7,8 via the slab's area-level assignment.
+    assert set(diaphragms["D1"].nodes) == {"5", "6", "7", "8"}
+
+
 def test_validates_against_schema(geo_etabs):
     # structural_model() with no path still validates by default.
     model = geo_etabs.export.structural_model()

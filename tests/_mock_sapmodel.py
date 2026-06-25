@@ -369,6 +369,10 @@ class _AreaObj(_FrameObj):
     def GetOpening(self, name, *_args):
         return [bool(self._geom.areas[name].opening), 0]
 
+    # GetDiaphragm(Name, DiaphragmName) -> [DiaphragmName, ret]
+    def GetDiaphragm(self, name, *_args):
+        return [self._geom.areas[name].diaphragm, 0]
+
     # GetLoadUniform(...) -> [NumberItems, AreaName, LoadPat, CSys, Dir, Value, ret]
     def GetLoadUniform(self, name, *_args):
         loads = self._geom.area_loads.get(name, [])
@@ -501,16 +505,28 @@ class _PropMaterial:
 
     # -- geometry-read getters (ADR 0009) -------------------------------
 
-    # GetMPIsotropic(Name, E, U, A, G, Temp) -> [E, U, A, G, ret]
+    # GetMPIsotropic(Name, E, U, A, G, Temp) -> [E, U, A, G, ret]. ret=1 for
+    # materials that are not isotropic (uniaxial rebar/tendon, orthotropic, ...).
     def GetMPIsotropic(self, name, *_args):
-        m = self._geom.materials[name]
+        m = self._geom.materials.get(name)
+        if m is None or m.get("uniaxial"):
+            return [0.0, 0.0, 0.0, 0.0, 1]
         E, nu = float(m["E"]), float(m["nu"])
         G = E / (2.0 * (1.0 + nu))
         return [E, nu, float(m.get("alpha", 0.0)), G, 0]
 
+    # GetMPUniaxial(Name, E, A, Temp) -> [E, A, ret] (rebar/tendon fallback).
+    def GetMPUniaxial(self, name, *_args):
+        m = self._geom.materials.get(name)
+        if m is None or not m.get("uniaxial"):
+            return [0.0, 0.0, 1]
+        return [float(m["E"]), float(m.get("alpha", 0.0)), 0]
+
     # GetWeightAndMass(Name, W, M, Temp) -> [W, M, ret]
     def GetWeightAndMass(self, name, *_args):
-        m = self._geom.materials[name]
+        m = self._geom.materials.get(name)
+        if m is None:
+            return [0.0, 0.0, 1]
         return [float(m.get("weight", 0.0)), float(m.get("rho", 0.0)), 0]
 
     # SetMassSource_1(IncludeElements, IncludeAddedMass, IncludeLoads,
@@ -637,14 +653,21 @@ class _PropFrame:
 
     # -- geometry-read getters (ADR 0009) -------------------------------
 
-    # GetMaterial(Name, MatProp) -> [MatProp, ret]
+    # GetMaterial(Name, MatProp) -> [MatProp, ret]. ret=1 for sections with no
+    # single material (auto-select lists), matching real ETABS.
     def GetMaterial(self, name, *_args):
-        return [self._geom.frame_sections[name]["material"], 0]
+        spec = self._geom.frame_sections.get(name)
+        if spec is None:
+            return ["", 1]
+        return [spec["material"], 0]
 
-    # GetSectProps(Name, Area, As2, As3, Torsion, I22, I33, S22, S33, Z22, Z33,
-    #   R22, R33) -> [12 values..., ret]
+    # GetSectProps(...) -> [12 values..., ret]. ret=1 for sections with no
+    # computed properties (e.g. nonprismatic).
     def GetSectProps(self, name, *_args):
-        props = self._geom.frame_sections[name].get("props", {})
+        spec = self._geom.frame_sections.get(name)
+        if spec is None:
+            return [0.0] * 12 + [1]
+        props = spec.get("props", {})
         return [float(props.get(k, 0.0)) for k in _SECT_PROP_ORDER] + [0]
 
 

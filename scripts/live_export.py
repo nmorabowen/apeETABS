@@ -57,6 +57,15 @@ def full_export(e, out: Path):
             f"diaphragms={len(model.diaphragms)} (nodes={dia_nodes}) "
             f"loads={len(model.loads)}"
         )
+        # Per-pattern load breakdown + area-load join-key integrity.
+        area_ids = {a.id for a in model.areas}
+        for p in model.loads:
+            bad = sorted({a.area for a in p.area if a.area not in area_ids})
+            flag = f"  ✗ unknown areas: {bad}" if bad else ""
+            print(
+                f"    {p.name!r}: nodal={len(p.nodal)} frame={len(p.frame)} "
+                f"area={len(p.area)}{flag}"
+            )
         return model
     except Exception as exc:  # noqa: BLE001 — report, don't mask the count gate
         print(f"\nFULL EXPORT: FAILED ({type(exc).__name__}: {exc})")
