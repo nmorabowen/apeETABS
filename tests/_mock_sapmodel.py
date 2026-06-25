@@ -369,6 +369,10 @@ class _AreaObj(_FrameObj):
     def GetOpening(self, name, *_args):
         return [bool(self._geom.areas[name].opening), 0]
 
+    # GetDiaphragm(Name, DiaphragmName) -> [DiaphragmName, ret]
+    def GetDiaphragm(self, name, *_args):
+        return [self._geom.areas[name].diaphragm, 0]
+
     # GetLoadUniform(...) -> [NumberItems, AreaName, LoadPat, CSys, Dir, Value, ret]
     def GetLoadUniform(self, name, *_args):
         loads = self._geom.area_loads.get(name, [])

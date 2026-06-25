@@ -52,8 +52,8 @@ class Geometry:
         return _restraints.read_restraints(self._sap, self._point_names())
 
     def diaphragms(self) -> list[dict]:
-        """Defined diaphragms: ``[{name, nodes}]`` grouped by joint assignment."""
-        return _diaphragms.read_diaphragms(self._sap, self._point_names())
+        """Named diaphragms: ``[{name, nodes}]`` (joint + area-level membership)."""
+        return _diaphragms.read_diaphragms(self._sap, self._point_names(), self.areas())
 
     # ------------------------------------------------------------------
     # Properties (only the sections/materials actually referenced)

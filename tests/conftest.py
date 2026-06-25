@@ -105,9 +105,10 @@ DEFAULT_GEOMETRY = GeometrySpec(
         "7": (4.0, 4.0, 3.0), "8": (0.0, 4.0, 3.0),
     },
     restraints={n: [True] * 6 for n in ("1", "2", "3", "4")},
-    # Mix of shell-inherited (2 = FromShellObject) and explicit (3 = Defined)
-    # diaphragm joints — both must be grouped; only Disconnect (1) is skipped.
-    point_diaphragm={"5": (2, "D1"), "6": (2, "D1"), "7": (3, "D1"), "8": (3, "D1")},
+    # Joints 5,6 carry the diaphragm at the joint level (2 = FromShellObject);
+    # joints 7,8 do NOT — they reach D1 only via the slab's area-level
+    # assignment (AreaObj.GetDiaphragm on S1), exercising both capture paths.
+    point_diaphragm={"5": (2, "D1"), "6": (2, "D1")},
     frames={
         "C1": FrameSpec("1", "5", "COL400"),
         "C2": FrameSpec("2", "6", "COL400"),
@@ -119,7 +120,7 @@ DEFAULT_GEOMETRY = GeometrySpec(
         "B3": FrameSpec("8", "5", "BEAM300"),
     },
     areas={
-        "S1": AreaSpec(["5", "6", "7", "8"], "SLAB200"),
+        "S1": AreaSpec(["5", "6", "7", "8"], "SLAB200", diaphragm="D1"),
         "W1": AreaSpec(["1", "2", "6", "5"], "WALL250"),
     },
     frame_sections={

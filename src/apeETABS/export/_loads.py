@@ -92,6 +92,10 @@ def _read_frame_distributed(sap, name: str, out: dict[str, list[FrameLoad]]) -> 
 
 def _read_area_uniform(sap, name: str, out: dict[str, list[AreaLoad]]) -> None:
     # GetLoadUniform out: NumberItems, AreaName, LoadPat, CSys, Dir, Value.
+    # (GetLoadUniformToFrame is NOT a usable getter — it returns ret=-100 on
+    # real models; the OAPI reference marks it "NOT APPLICABLE". Load-set /
+    # shell-distributed gravity has no working object-API getter — see the
+    # Phase-4 loads limitation note.)
     n, _an, pats, _cs, dirs, vals = ok(
         sap.AreaObj.GetLoadUniform(name, 0, [], [], [], []),
         "GetLoadUniform",

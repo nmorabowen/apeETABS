@@ -56,6 +56,13 @@ def test_loads_assembled_per_pattern(geo_etabs):
     assert live.nodal[0].force_xyz == (5.0, 0.0, 0.0)
 
 
+def test_diaphragm_unions_joint_and_area_membership(geo_etabs):
+    diaphragms = {d.name: d for d in geo_etabs.export.structural_model().diaphragms}
+    assert set(diaphragms) == {"D1"}
+    # 5,6 via joint-level; 7,8 via the slab's area-level assignment.
+    assert set(diaphragms["D1"].nodes) == {"5", "6", "7", "8"}
+
+
 def test_validates_against_schema(geo_etabs):
     # structural_model() with no path still validates by default.
     model = geo_etabs.export.structural_model()
